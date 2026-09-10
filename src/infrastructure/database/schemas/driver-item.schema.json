@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CloudFleet Driver DynamoDB item",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "PK": { "type": "string", "pattern": "^DRIVER#.+$" },
+    "SK": { "type": "string", "const": "PROFILE" },
+    "GSI2PK": { "type": "string", "pattern": "^DRIVER_STATUS#.+$" },
+    "GSI2SK": { "type": "string" },
+    "driverId": { "type": "string", "minLength": 1 },
+    "name": { "type": "string", "minLength": 1 },
+    "phone": { "type": "string", "pattern": "^\\+[1-9][0-9]{7,14}$" },
+    "vehiclePlate": { "type": "string", "minLength": 5 },
+    "currentArea": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "enum": ["AVAILABLE", "ON_DELIVERY", "OFFLINE"] },
+    "completedToday": { "type": "integer", "minimum": 0 },
+    "activeOrderId": {
+      "type": "string",
+      "description": "Optional route concurrency lock, set on Start and removed on completion."
+    },
+    "lat": { "type": ["number", "null"], "minimum": -90, "maximum": 90 },
+    "lng": { "type": ["number", "null"], "minimum": -180, "maximum": 180 },
+    "locationUpdatedAt": { "type": ["string", "null"], "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  },
+  "required": ["PK", "SK", "GSI2PK", "GSI2SK", "driverId", "name", "phone", "vehiclePlate", "currentArea", "status", "completedToday", "lat", "lng", "locationUpdatedAt", "updatedAt"]
+}

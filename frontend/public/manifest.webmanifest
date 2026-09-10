@@ -1,0 +1,25 @@
+{
+  "id": "/driver",
+  "name": "CloudFleet Driver",
+  "short_name": "CloudFleet",
+  "description": "Offline-ready delivery workflow for CloudFleet drivers.",
+  "start_url": "/driver",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f172a",
+  "categories": ["business", "navigation", "productivity"],
+  "icons": [
+    {
+      "src": "/pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    { "name": "Current delivery", "url": "/driver", "icons": [{ "src": "/pwa-icon.svg", "sizes": "any", "type": "image/svg+xml" }] },
+    { "name": "Delivery history", "url": "/driver/history", "icons": [{ "src": "/pwa-icon.svg", "sizes": "any", "type": "image/svg+xml" }] }
+  ]
+}

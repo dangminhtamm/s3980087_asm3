@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CloudFleet Orders DynamoDB item",
+  "description": "Single-table key design for orders. PK isolates each order; SK leaves room for related events and proof-of-delivery records.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "PK": {
+      "type": "string",
+      "description": "Partition key. Format: ORDER#<orderId>",
+      "pattern": "^ORDER#.+$"
+    },
+    "SK": {
+      "type": "string",
+      "description": "Sort key for the order metadata item.",
+      "const": "METADATA"
+    },
+    "GSI1PK": {
+      "type": "string",
+      "description": "Driver index partition key. Format: DRIVER#<driverId>",
+      "pattern": "^DRIVER#.+$"
+    },
+    "GSI1SK": {
+      "type": "string",
+      "description": "Driver index sort key. Format: STATUS#<status>#CREATED#<createdAt>#ORDER#<orderId>"
+    },
+    "GSI2PK": {
+      "type": "string",
+      "description": "Entity/status index partition key. Orders use ORDER_STATUS#<status>. Drivers use DRIVER_STATUS#<status>."
+    },
+    "GSI2SK": {
+      "type": "string",
+      "description": "Time-ordered sort key for operational listing queries."
+    },
+    "orderId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "customerName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "customerPhone": {
+      "type": "string",
+      "description": "Customer SMS destination in E.164 format.",
+      "pattern": "^\\+[1-9][0-9]{7,14}$"
+    },
+    "dropoffAddress": {
+      "type": "string",
+      "minLength": 1
+    },
+    "region": { "type": "string", "minLength": 1 },
+    "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+    "lng": { "type": "number", "minimum": -180, "maximum": 180 },
+    "status": {
+      "type": "string",
+      "enum": ["PENDING", "ASSIGNED", "IN_PROGRESS", "ARRIVED", "DELIVERED", "DELIVERY_FAILED", "RESCHEDULED", "CANCELLED", "RETURNING", "RETURNED"]
+    },
+    "driverId": {
+      "description": "Null until an admin assigns the order. Omit GSI1PK/GSI1SK while unassigned.",
+      "type": ["string", "null"]
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "deliveredAt": { "type": ["string", "null"], "format": "date-time" },
+    "exception": {
+      "description": "Latest operational exception, retained for audit after resolution.",
+      "type": ["object", "null"]
+    },
+    "timeWindowStart": { "type": ["string", "null"], "format": "date-time" },
+    "timeWindowEnd": { "type": ["string", "null"], "format": "date-time" },
+    "packageWeightKg": { "type": "number", "minimum": 0 },
+    "packageVolumeM3": { "type": "number", "minimum": 0 },
+    "serviceDurationMinutes": { "type": "integer", "minimum": 1 },
+    "routeId": { "type": ["string", "null"] },
+    "stopSequence": { "type": ["integer", "null"], "minimum": 1 }
+    ,"startedAt": { "type": ["string", "null"], "format": "date-time" }
+    ,"arrivedAt": { "type": ["string", "null"], "format": "date-time" }
+    ,"plannedArrivalAt": { "type": ["string", "null"], "format": "date-time" }
+    ,"customerRescheduleRequest": {
+      "description": "Latest token-authenticated customer request awaiting operational review.",
+      "type": ["object", "null"]
+    }
+  },
+  "required": [
+    "PK",
+    "SK",
+    "GSI2PK",
+    "GSI2SK",
+    "orderId",
+    "customerName",
+    "customerPhone",
+    "dropoffAddress",
+    "region",
+    "lat",
+    "lng",
+    "status",
+    "driverId",
+    "createdAt",
+    "deliveredAt",
+    "timeWindowStart",
+    "timeWindowEnd",
+    "packageWeightKg",
+    "packageVolumeM3",
+    "serviceDurationMinutes",
+    "routeId",
+    "stopSequence"
+    ,"startedAt"
+    ,"arrivedAt"
+    ,"plannedArrivalAt"
+  ],
+  "x-dynamodb-table": {
+    "tableNameEnvironmentVariable": "DYNAMODB_TABLE_NAME",
+    "billingMode": "PAY_PER_REQUEST",
+    "partitionKey": { "name": "PK", "type": "S" },
+    "sortKey": { "name": "SK", "type": "S" },
+    "globalSecondaryIndexes": [
+      {
+        "indexName": "GSI1",
+        "partitionKey": { "name": "GSI1PK", "type": "S" },
+        "sortKey": { "name": "GSI1SK", "type": "S" },
+        "projectionType": "ALL"
+      },
+      {
+        "indexName": "GSI2",
+        "partitionKey": { "name": "GSI2PK", "type": "S" },
+        "sortKey": { "name": "GSI2SK", "type": "S" },
+        "projectionType": "ALL"
+      }
+    ],
+    "streamViewType": "NEW_AND_OLD_IMAGES",
+    "pointInTimeRecovery": true,
+    "timeToLiveAttribute": "expiresAt"
+  },
+  "x-access-patterns": [
+    {
+      "operation": "Get order by ID",
+      "index": "PRIMARY",
+      "keyCondition": "PK = ORDER#<orderId> AND SK = METADATA"
+    },
+    {
+      "operation": "Read an order lifecycle timeline",
+      "index": "PRIMARY",
+      "keyCondition": "PK = ORDER#<orderId> AND begins_with(SK, EVENT#)"
+    },
+    {
+      "operation": "List a driver's orders by status in creation-time order",
+      "index": "GSI1",
+      "keyCondition": "GSI1PK = DRIVER#<driverId> AND begins_with(GSI1SK, STATUS#<status>#)"
+    },
+    {
+      "operation": "Read a route and its ordered stops",
+      "index": "PRIMARY",
+      "keyCondition": "PK = ROUTE#<routeId>",
+      "notes": "Metadata uses SK=METADATA; stops use SK=STOP#<zero-padded sequence>#ORDER#<orderId>."
+    },
+    {
+      "operation": "List a driver's planned routes",
+      "index": "GSI1",
+      "keyCondition": "GSI1PK = DRIVER#<driverId> AND begins_with(GSI1SK, ROUTE#)"
+    },
+    {
+      "operation": "List orders by status in creation-time order",
+      "index": "GSI2",
+      "keyCondition": "GSI2PK = ORDER_STATUS#<status>"
+    },
+    {
+      "operation": "List drivers by availability status",
+      "index": "GSI2",
+      "keyCondition": "GSI2PK = DRIVER_STATUS#<status>"
+    },
+    {
+      "operation": "Resolve an opaque customer tracking token",
+      "index": "PRIMARY",
+      "keyCondition": "PK = TRACKING#<sha256(token)> AND SK = TOKEN",
+      "notes": "Lookup item expires through DynamoDB TTL; the API also enforces expiresAt synchronously."
+    },
+    {
+      "operation": "Read a tracking token for an order notification",
+      "index": "PRIMARY",
+      "keyCondition": "PK = ORDER#<orderId> AND SK = TRACKING#TOKEN",
+      "notes": "Used only by the Admin API and delivery-notification Lambda; never included in the Order DTO."
+    },
+    {
+      "operation": "Read one customer feedback record",
+      "index": "PRIMARY",
+      "keyCondition": "PK = ORDER#<orderId> AND SK = CUSTOMER#FEEDBACK"
+    },
+    {
+      "operation": "List push subscriptions for a driver",
+      "index": "PRIMARY",
+      "keyCondition": "PK = DRIVER#<driverId> AND begins_with(SK, PUSH#)",
+      "notes": "The sort key suffix is SHA-256(endpoint); stale provider endpoints are deleted on HTTP 404/410."
+    }
+  ]
+}

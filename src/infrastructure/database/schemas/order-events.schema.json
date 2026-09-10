@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CloudFleet order lifecycle event",
+  "description": "Immutable lifecycle record colocated with its order in the single DynamoDB table.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "PK": {
+      "type": "string",
+      "pattern": "^ORDER#.+$",
+      "description": "Partition key shared with the parent order."
+    },
+    "SK": {
+      "type": "string",
+      "pattern": "^EVENT#.+#.+$",
+      "description": "Chronological sort key: EVENT#<occurredAt>#<eventId>."
+    },
+    "eventId": { "type": "string", "minLength": 1 },
+    "orderId": { "type": "string", "minLength": 1 },
+    "type": {
+      "type": "string",
+      "enum": [
+        "ORDER_CREATED",
+        "DRIVER_ASSIGNED",
+        "DELIVERY_STARTED",
+        "PROOF_UPLOADED",
+        "DELIVERY_COMPLETED",
+        "SMS_NOTIFICATION_SENT",
+        "SMS_NOTIFICATION_FAILED"
+      ]
+    },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "actorId": { "type": "string", "minLength": 1 },
+    "source": { "type": "string", "enum": ["RECORDED", "DERIVED"] },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    }
+  },
+  "required": ["PK", "SK", "eventId", "orderId", "type", "occurredAt", "actorId", "source", "metadata"],
+  "x-access-pattern": "PK = ORDER#<orderId> AND begins_with(SK, EVENT#), ascending"
+}

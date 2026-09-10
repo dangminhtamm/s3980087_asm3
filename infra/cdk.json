@@ -1,0 +1,12 @@
+{
+  "app": "npx tsx bin/cloudfleet-infra.ts",
+  "context": {
+    "projectName": "cloudfleet",
+    "stage": "dev",
+    "corsAllowedOrigins": "http://localhost:5173,http://127.0.0.1:5173",
+    "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
+    "@aws-cdk/core:checkSecretUsage": true,
+    "@aws-cdk/core:target-partitions": ["aws", "aws-cn"],
+    "@aws-cdk-containers/ecs-service-extensions:enableDefaultLogDriver": true
+  }
+}

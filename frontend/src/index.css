@@ -1,0 +1,189 @@
+@import "tailwindcss";
+
+:root {
+  --cf-ink: #0a0a0a;
+  --cf-canvas: #f5f5f3;
+  --cf-surface: #ffffff;
+  --cf-line: #e5e5e5;
+  --cf-muted: #737373;
+  --cf-radius-sm: 0.5rem;
+  --cf-radius-md: 0.75rem;
+  --cf-radius-lg: 1.25rem;
+  --cf-shadow-float: 0 18px 55px rgb(10 10 10 / 0.1);
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  color: #0f172a;
+  background: #f4f6f8;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: var(--cf-canvas);
+}
+
+::selection {
+  background: var(--cf-ink);
+  color: white;
+}
+
+:focus-visible {
+  outline-color: var(--cf-ink);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes cf-enter {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes cf-success-pop {
+    0% { opacity: 0; transform: scale(0.45) rotate(-12deg); }
+    65% { opacity: 1; transform: scale(1.12) rotate(3deg); }
+    100% { opacity: 1; transform: scale(1) rotate(0); }
+  }
+
+  main {
+    animation: cf-enter 280ms ease-out both;
+  }
+
+  .cloudfleet-success-mark {
+    animation: cf-success-pop 560ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+/* Leaflet requires its container to have an explicit height. A parent's
+   min-height is not enough for a child whose height is only 100%. */
+.cloudfleet-delivery-map {
+  width: 100%;
+  height: 22.5rem;
+  min-height: 22.5rem;
+}
+
+@media (min-width: 64rem) {
+  .cloudfleet-delivery-map {
+    height: 100%;
+    min-height: 38.75rem;
+  }
+}
+
+/* Distinguishes the live driver marker while preserving Leaflet's icon asset. */
+.cloudfleet-driver-marker {
+  filter: hue-rotate(115deg) saturate(1.35);
+}
+
+.cloudfleet-control-map {
+  width: 100%;
+  height: 31rem;
+  background: #e5e5e5;
+}
+
+.cloudfleet-map-icon {
+  background: transparent;
+  border: 0;
+}
+
+.cloudfleet-map-driver {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 3px solid white;
+  border-radius: 999px;
+  background: #171717;
+  box-shadow: 0 5px 18px rgb(10 10 10 / 0.28);
+}
+
+.cloudfleet-map-driver > span {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: white;
+}
+
+.cloudfleet-map-driver--available { background: #10b981; }
+.cloudfleet-map-driver--on-delivery { background: #f59e0b; }
+.cloudfleet-map-driver--offline { background: #737373; }
+
+.cloudfleet-map-destination {
+  display: grid;
+  width: 1.6rem;
+  height: 1.6rem;
+  place-items: center;
+  transform: rotate(45deg);
+  border: 3px solid white;
+  border-radius: 0.4rem;
+  background: #0a0a0a;
+  box-shadow: 0 5px 16px rgb(10 10 10 / 0.25);
+}
+
+.cloudfleet-map-destination > span {
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: white;
+}
+
+@media (max-width: 40rem) {
+  .cloudfleet-control-map { height: 25rem; }
+}
+
+.cloudfleet-dispatch-map {
+  width: 100%;
+  height: 43rem;
+  background: #e5e5e5;
+}
+
+.cloudfleet-map-order {
+  display: grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  place-items: center;
+  transform: rotate(45deg);
+  border: 3px solid white;
+  border-radius: 0.45rem;
+  background: #737373;
+  box-shadow: 0 5px 16px rgb(10 10 10 / 0.25);
+}
+
+.cloudfleet-map-order--in_progress { background: #171717; }
+.cloudfleet-map-order--delivered { background: #10b981; }
+
+.cloudfleet-map-order > span {
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: white;
+}
+
+.cloudfleet-map-marker--selected {
+  outline: 3px solid rgb(23 23 23 / 0.3);
+  outline-offset: 4px;
+}
+
+.cloudfleet-detail-map {
+  width: 100%;
+  height: 25rem;
+  background: #e5e5e5;
+}
+
+@media (max-width: 64rem) {
+  .cloudfleet-dispatch-map { height: 31rem; }
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CloudFleet Driver Location History item",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "PK": { "type": "string", "pattern": "^DRIVER#.+$" },
+    "SK": { "type": "string", "pattern": "^LOCATION#.+$" },
+    "driverId": { "type": "string", "minLength": 1 },
+    "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+    "lng": { "type": "number", "minimum": -180, "maximum": 180 },
+    "accuracy": { "type": ["number", "null"], "minimum": 0 },
+    "recordedAt": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": "integer", "description": "DynamoDB TTL; location history is retained for 30 days." }
+  },
+  "required": ["PK", "SK", "driverId", "lat", "lng", "accuracy", "recordedAt", "expiresAt"]
+}

@@ -1,0 +1,12 @@
+node_modules
+frontend
+infra
+dist
+coverage
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+*.log
+README.md
