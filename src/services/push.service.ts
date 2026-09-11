@@ -18,30 +18,36 @@ import { durationMsSince, emitMetrics } from '../observability/metrics.js';
 const subscriptionId = (endpoint: string): string =>
   createHash('sha256').update(endpoint).digest('hex');
 
+export interface PushConfiguration {
+  publicKey: string | null;
+  privateKey: string | null;
+  subject: string;
+}
+
+const disabledPushConfiguration: PushConfiguration = {
+  publicKey: null,
+  privateKey: null,
+  subject: 'mailto:ops@cloudfleet.local',
+};
+
 export class PushService {
-  private readonly publicKey = this.configuredValue('VAPID_PUBLIC_KEY');
-  private readonly privateKey = this.configuredValue('VAPID_PRIVATE_KEY');
+  private readonly publicKey: string | null;
+  private readonly privateKey: string | null;
 
   public constructor(
     private readonly database: DynamoDBDocumentClient,
     private readonly tableName: string,
+    configuration: PushConfiguration = disabledPushConfiguration,
   ) {
+    this.publicKey = configuration.publicKey;
+    this.privateKey = configuration.privateKey;
     if (this.publicKey && this.privateKey) {
-      webPush.setVapidDetails(
-        process.env.VAPID_SUBJECT?.trim() || 'mailto:ops@cloudfleet.local',
-        this.publicKey,
-        this.privateKey,
-      );
+      webPush.setVapidDetails(configuration.subject, this.publicKey, this.privateKey);
     }
   }
 
   public getPublicKey(): string | null {
     return this.publicKey;
-  }
-
-  private configuredValue(name: string): string | null {
-    const value = process.env[name]?.trim();
-    return value && value !== 'REPLACE_ME' ? value : null;
   }
 
   public async subscribe(

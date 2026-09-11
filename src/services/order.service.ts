@@ -63,7 +63,7 @@ export class OrderService {
   public constructor(
     private readonly database: DynamoDBDocumentClient,
     private readonly tableName: string,
-    private readonly trackingBaseUrl = process.env.TRACKING_BASE_URL?.trim() || null,
+    private readonly trackingBaseUrl: string | null = null,
   ) {}
 
   public async createOrder(input: CreateOrderInput, actorId = 'system'): Promise<Order> {

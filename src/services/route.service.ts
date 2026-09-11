@@ -40,6 +40,7 @@ export class RouteService {
     private readonly orders: OrderService,
     private readonly drivers: DriverService,
     private readonly routing = new RoutingService(),
+    private readonly defaultOrigin = { lat: 10.7769, lng: 106.7009 },
   ) {}
 
   public async createRoute(input: CreateRouteInput, actorId: string): Promise<Route> {
@@ -64,8 +65,8 @@ export class RouteService {
     const createdAt = new Date().toISOString();
     const routeId = randomUUID();
     const origin = {
-      lat: driver.lat ?? Number(process.env.ROUTING_ORIGIN_LAT ?? '10.7769'),
-      lng: driver.lng ?? Number(process.env.ROUTING_ORIGIN_LNG ?? '106.7009'),
+      lat: driver.lat ?? this.defaultOrigin.lat,
+      lng: driver.lng ?? this.defaultOrigin.lng,
     };
     const departureAt = `${input.scheduledDate}T01:00:00.000Z`;
     const plan = await this.routing.plan(

@@ -1,50 +1,26 @@
-import 'dotenv/config';
-
 import { DynamoDBClient, type DynamoDBClientConfig } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+
 import { instrumentAwsClient } from '../observability/metrics.js';
+import type { AppConfig } from './app-config.js';
 
-/**
- * Reads a required environment variable and fails during application startup.
- * This prevents the service from silently connecting to the wrong AWS resource.
- */
-const getRequiredEnvironmentVariable = (name: string): string => {
-  const value = process.env[name]?.trim();
-
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-
-  return value;
-};
-
-const clientConfig: DynamoDBClientConfig = {
-  region: getRequiredEnvironmentVariable('AWS_REGION'),
-};
-
-const localEndpoint = process.env.DYNAMODB_ENDPOINT?.trim();
-
-if (localEndpoint) {
-  clientConfig.endpoint = localEndpoint;
+export interface DatabaseClients {
+  client: DynamoDBClient;
+  document: DynamoDBDocumentClient;
 }
 
-/**
- * Credentials are intentionally omitted. AWS SDK v3 uses its default provider
- * chain: IAM Identity Center/shared config locally and the ECS task role in AWS.
- */
-export const dynamoDBClient = new DynamoDBClient(clientConfig);
+export const createDatabaseClients = (config: AppConfig): DatabaseClients => {
+  const clientConfig: DynamoDBClientConfig = { region: config.aws.region };
+  if (config.dynamodb.endpoint) clientConfig.endpoint = config.dynamodb.endpoint;
 
-/**
- * The document client maps native JavaScript values to DynamoDB AttributeValues.
- * Undefined properties are removed so optional fields cannot break write calls.
- */
-export const dynamoDB = DynamoDBDocumentClient.from(dynamoDBClient, {
-  marshallOptions: {
-    removeUndefinedValues: true,
-    convertClassInstanceToMap: false,
-  },
-});
-
-instrumentAwsClient(dynamoDB.middlewareStack, 'DynamoDB');
-
-export const ORDERS_TABLE_NAME = getRequiredEnvironmentVariable('DYNAMODB_TABLE_NAME');
+  // Credentials intentionally use the AWS SDK default provider chain.
+  const client = new DynamoDBClient(clientConfig);
+  const document = DynamoDBDocumentClient.from(client, {
+    marshallOptions: {
+      removeUndefinedValues: true,
+      convertClassInstanceToMap: false,
+    },
+  });
+  instrumentAwsClient(document.middlewareStack, 'DynamoDB');
+  return { client, document };
+};

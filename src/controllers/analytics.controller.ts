@@ -1,21 +1,21 @@
-import type { NextFunction, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import type { z } from 'zod';
 
-import { analyticsOverviewQuerySchema } from '../schemas/analytics.schema.js';
+import { sendData } from '../http/response.js';
+import { validated } from '../middlewares/validation.js';
+import type { analyticsOverviewQuerySchema } from '../schemas/analytics.schema.js';
 import type { AnalyticsService } from '../services/analytics.service.js';
+
+type AnalyticsQuery = z.infer<typeof analyticsOverviewQuerySchema>;
 
 export class AnalyticsController {
   public constructor(private readonly analytics: AnalyticsService) {}
 
-  public getOverview = async (
-    request: Request,
-    response: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const query = analyticsOverviewQuerySchema.parse(request.query);
-      response.status(200).json({ data: await this.analytics.getOverview(query) });
-    } catch (error: unknown) {
-      next(error);
-    }
+  public getOverview = async (_request: Request, response: Response): Promise<void> => {
+    sendData(
+      response,
+      200,
+      await this.analytics.getOverview(validated<AnalyticsQuery>(response, 'query')),
+    );
   };
 }

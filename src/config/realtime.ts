@@ -1,15 +1,13 @@
-import 'dotenv/config';
-
 import { ApiGatewayManagementApiClient } from '@aws-sdk/client-apigatewaymanagementapi';
 
-const managementEndpoint = process.env.WEBSOCKET_MANAGEMENT_ENDPOINT?.trim();
+import type { AppConfig } from './app-config.js';
 
-export const WEBSOCKET_PUBLIC_URL = process.env.WEBSOCKET_PUBLIC_URL?.trim() || null;
-
-/** Undefined locally: location writes still succeed, but broadcasting is off. */
-export const webSocketManagementClient = managementEndpoint
-  ? new ApiGatewayManagementApiClient({
-      region: process.env.AWS_REGION?.trim() || 'ap-southeast-1',
-      endpoint: managementEndpoint,
-    })
-  : null;
+export const createWebSocketManagementClient = (
+  config: AppConfig,
+): ApiGatewayManagementApiClient | null =>
+  config.realtime.managementEndpoint
+    ? new ApiGatewayManagementApiClient({
+        region: config.aws.region,
+        endpoint: config.realtime.managementEndpoint,
+      })
+    : null;

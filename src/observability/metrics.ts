@@ -2,6 +2,22 @@ import type { MetadataBearer, MiddlewareStack } from '@smithy/types';
 
 const DEFAULT_NAMESPACE = 'CloudFleet/Observability';
 
+export interface MetricsConfig {
+  serviceName: string;
+  environment: string;
+  namespace: string;
+}
+
+let metricsConfig: MetricsConfig = {
+  serviceName: 'cloudfleet-api',
+  environment: 'local',
+  namespace: DEFAULT_NAMESPACE,
+};
+
+export const configureMetrics = (config: MetricsConfig): void => {
+  metricsConfig = { ...config };
+};
+
 export type MetricUnit = 'Count' | 'Milliseconds' | 'Bytes' | 'None' | 'Percent';
 
 export interface MetricValue {
@@ -31,9 +47,8 @@ export const emitMetrics = (
   if (finiteMetrics.length === 0) return;
 
   const allDimensions = {
-    Service: process.env.METRICS_SERVICE_NAME?.trim() || 'cloudfleet-api',
-    Environment:
-      process.env.OBSERVABILITY_ENVIRONMENT?.trim() || process.env.NODE_ENV?.trim() || 'local',
+    Service: metricsConfig.serviceName,
+    Environment: metricsConfig.environment,
     ...dimensions,
   };
   const dimensionNames = Object.keys(allDimensions).sort();
@@ -42,7 +57,7 @@ export const emitMetrics = (
       Timestamp: Date.now(),
       CloudWatchMetrics: [
         {
-          Namespace: process.env.METRICS_NAMESPACE?.trim() || DEFAULT_NAMESPACE,
+          Namespace: metricsConfig.namespace,
           Dimensions: [dimensionNames],
           Metrics: finiteMetrics.map(({ name, unit }) => ({ Name: name, Unit: unit })),
         },

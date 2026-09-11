@@ -1,43 +1,36 @@
-import type { NextFunction, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import type { z } from 'zod';
 
-import { driverIdParamsSchema } from '../schemas/driver.schema.js';
-import { pushSubscriptionSchema } from '../schemas/push.schema.js';
+import { sendData, sendEmpty } from '../http/response.js';
+import { validated } from '../middlewares/validation.js';
+import type { driverIdParamsSchema } from '../schemas/driver.schema.js';
+import type { pushSubscriptionSchema, pushUnsubscribeSchema } from '../schemas/push.schema.js';
 import type { PushService } from '../services/push.service.js';
+
+type DriverIdParams = z.infer<typeof driverIdParamsSchema>;
+type PushSubscriptionBody = z.infer<typeof pushSubscriptionSchema>;
+type PushUnsubscribeBody = z.infer<typeof pushUnsubscribeSchema>;
 
 export class PushController {
   public constructor(private readonly push: PushService) {}
 
   public getPublicKey = (_request: Request, response: Response): void => {
-    response.status(200).json({ data: { publicKey: this.push.getPublicKey() } });
+    sendData(response, 200, { publicKey: this.push.getPublicKey() });
   };
 
-  public subscribe = async (
-    request: Request,
-    response: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const { id } = driverIdParamsSchema.parse(request.params);
-      response
-        .status(201)
-        .json({ data: await this.push.subscribe(id, pushSubscriptionSchema.parse(request.body)) });
-    } catch (error: unknown) {
-      next(error);
-    }
+  public subscribe = async (_request: Request, response: Response): Promise<void> => {
+    const { id } = validated<DriverIdParams>(response, 'params');
+    sendData(
+      response,
+      201,
+      await this.push.subscribe(id, validated<PushSubscriptionBody>(response, 'body')),
+    );
   };
 
-  public unsubscribe = async (
-    request: Request,
-    response: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const { id } = driverIdParamsSchema.parse(request.params);
-      const { endpoint } = pushSubscriptionSchema.pick({ endpoint: true }).parse(request.body);
-      await this.push.unsubscribe(id, endpoint);
-      response.status(204).send();
-    } catch (error: unknown) {
-      next(error);
-    }
+  public unsubscribe = async (_request: Request, response: Response): Promise<void> => {
+    const { id } = validated<DriverIdParams>(response, 'params');
+    const { endpoint } = validated<PushUnsubscribeBody>(response, 'body');
+    await this.push.unsubscribe(id, endpoint);
+    sendEmpty(response, 204);
   };
 }

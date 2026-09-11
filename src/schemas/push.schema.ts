@@ -12,3 +12,5 @@ export const pushSubscriptionSchema = z
       .strict(),
   })
   .strict();
+
+export const pushUnsubscribeSchema = pushSubscriptionSchema.pick({ endpoint: true });

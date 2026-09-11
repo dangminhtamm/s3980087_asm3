@@ -29,6 +29,23 @@ The allowed responsibilities are:
 - `lambdas/`: thin AWS event adapters. Provider and persistence logic must be independently testable.
 - `observability/`: cross-cutting metrics and logging. It may observe a workflow but must not determine its business outcome.
 
+## API composition and startup
+
+The API has a single composition path:
+
+```text
+main.ts -> startServer() -> createContainer(config) -> createApiRouter(dependencies)
+                                                   -> createHealthRouter(dependencies)
+        -> createApp({ config, apiRouter, healthRouter })
+```
+
+- `main.ts` is the only executable API entry point. Importing `server.ts` or `app.ts` never opens a port.
+- `app.ts` is a pure Express factory and accepts already-constructed routers.
+- `composition-root.ts` constructs each shared client, service, workflow and controller once.
+- `config/app-config.ts` is the only API runtime module allowed to read `process.env`; it validates and groups all settings before object construction.
+- Feature routers (`orders.routes`, `drivers.routes`, `routes.routes`, `tracking.routes`, and `analytics.routes`) own endpoint wiring while `api.routes.ts` only composes them and applies cross-cutting middleware.
+- Health and readiness endpoints live under `health/` and receive readiness probes as dependencies.
+
 ## Frontend dependency direction
 
 ```text

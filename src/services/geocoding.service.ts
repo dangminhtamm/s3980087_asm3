@@ -24,11 +24,10 @@ export class GeocodingService {
   private nextRequestAt = 0;
 
   public constructor(
-    private readonly provider = process.env.GEOCODING_PROVIDER?.trim() || 'disabled',
-    private readonly baseUrl = process.env.GEOCODING_BASE_URL?.trim() ||
-      'https://nominatim.openstreetmap.org',
-    private readonly userAgent = process.env.GEOCODING_USER_AGENT?.trim() || 'CloudFleet/0.1',
-    private readonly minIntervalMs = Number(process.env.GEOCODING_MIN_INTERVAL_MS ?? '1000'),
+    private readonly provider = 'disabled',
+    private readonly baseUrl = 'https://nominatim.openstreetmap.org',
+    private readonly userAgent = 'CloudFleet/0.1',
+    private readonly minIntervalMs = 1000,
     private readonly fetcher: typeof fetch = fetch,
   ) {}
 

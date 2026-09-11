@@ -1,82 +1,48 @@
-import type { NextFunction, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import type { z } from 'zod';
 
-import {
+import { sendData } from '../http/response.js';
+import { validated } from '../middlewares/validation.js';
+import type {
   orderIdParamsSchema,
   proofUploadQuerySchema,
   registerDeliveryProofSchema,
 } from '../schemas/order.schema.js';
-import type { DeliveryProofService } from '../services/delivery-proof.service.js';
-import type { OrderService } from '../services/order.service.js';
-import { createProofOfDeliveryUploadUrl } from '../utils/s3-presigned-url.js';
-import { createProofOfDeliveryViewUrl } from '../utils/s3-presigned-url.js';
+import type { DeliveryProofWorkflowService } from '../services/delivery-proof-workflow.service.js';
+
+type OrderIdParams = z.infer<typeof orderIdParamsSchema>;
+type ProofUploadQuery = z.infer<typeof proofUploadQuerySchema>;
+type RegisterProofBody = z.infer<typeof registerDeliveryProofSchema>;
 
 export class DeliveryProofController {
-  public constructor(
-    private readonly orderService: OrderService,
-    private readonly proofService: DeliveryProofService,
-  ) {}
+  public constructor(private readonly proofs: DeliveryProofWorkflowService) {}
 
-  public createUploadUrl = async (
-    request: Request,
-    response: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const { id } = orderIdParamsSchema.parse(request.params);
-      const { contentType } = proofUploadQuerySchema.parse(request.query);
-      await this.orderService.assertCanUploadProof(id);
-      const upload = await createProofOfDeliveryUploadUrl(id, contentType);
-      response.status(200).json({ data: upload });
-    } catch (error: unknown) {
-      next(error);
-    }
+  public createUploadUrl = async (_request: Request, response: Response): Promise<void> => {
+    const { id } = validated<OrderIdParams>(response, 'params');
+    const { contentType } = validated<ProofUploadQuery>(response, 'query');
+    sendData(response, 200, await this.proofs.createUploadUrl(id, contentType));
   };
 
-  public registerProof = async (
-    request: Request,
-    response: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const { id } = orderIdParamsSchema.parse(request.params);
-      const input = registerDeliveryProofSchema.parse(request.body);
-      await this.orderService.assertCanUploadProof(id);
-      const proof = await this.proofService.registerProof(
+  public registerProof = async (request: Request, response: Response): Promise<void> => {
+    const { id } = validated<OrderIdParams>(response, 'params');
+    sendData(
+      response,
+      201,
+      await this.proofs.register(
         id,
-        input,
+        validated<RegisterProofBody>(response, 'body'),
         request.authenticatedUser!.subject,
-      );
-      response.status(201).json({ data: proof });
-    } catch (error: unknown) {
-      next(error);
-    }
+      ),
+    );
   };
 
-  public getProof = async (
-    request: Request,
-    response: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const { id } = orderIdParamsSchema.parse(request.params);
-      const proof = await this.proofService.getProof(id);
-      response.status(200).json({ data: proof });
-    } catch (error: unknown) {
-      next(error);
-    }
+  public getProof = async (_request: Request, response: Response): Promise<void> => {
+    const { id } = validated<OrderIdParams>(response, 'params');
+    sendData(response, 200, await this.proofs.get(id));
   };
 
-  public getViewUrl = async (
-    request: Request,
-    response: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const { id } = orderIdParamsSchema.parse(request.params);
-      const proof = await this.proofService.getProof(id);
-      response.status(200).json({ data: await createProofOfDeliveryViewUrl(proof.objectKey) });
-    } catch (error: unknown) {
-      next(error);
-    }
+  public getViewUrl = async (_request: Request, response: Response): Promise<void> => {
+    const { id } = validated<OrderIdParams>(response, 'params');
+    sendData(response, 200, await this.proofs.createViewUrl(id));
   };
 }

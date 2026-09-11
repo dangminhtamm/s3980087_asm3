@@ -1,86 +1,56 @@
-import type { NextFunction, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import type { z } from 'zod';
 
-import {
+import { sendData } from '../http/response.js';
+import { validated } from '../middlewares/validation.js';
+import type {
   createDriverSchema,
   driverIdParamsSchema,
   listDriversQuerySchema,
-  updateDriverStatusSchema,
   updateDriverLocationSchema,
+  updateDriverStatusSchema,
 } from '../schemas/driver.schema.js';
 import type { DriverService } from '../services/driver.service.js';
 
+type DriverIdParams = z.infer<typeof driverIdParamsSchema>;
+type CreateDriverBody = z.infer<typeof createDriverSchema>;
+type ListDriversQuery = z.infer<typeof listDriversQuerySchema>;
+type UpdateDriverStatusBody = z.infer<typeof updateDriverStatusSchema>;
+type UpdateDriverLocationBody = z.infer<typeof updateDriverLocationSchema>;
+
 export class DriverController {
-  public constructor(private readonly driverService: DriverService) {}
+  public constructor(private readonly drivers: DriverService) {}
 
-  public listDrivers = async (
-    request: Request,
-    response: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const { status, limit } = listDriversQuerySchema.parse(request.query);
-      const drivers = await this.driverService.listDrivers(status, limit);
-      response.status(200).json({ data: drivers });
-    } catch (error: unknown) {
-      next(error);
-    }
+  public listDrivers = async (_request: Request, response: Response): Promise<void> => {
+    const { status, limit } = validated<ListDriversQuery>(response, 'query');
+    sendData(response, 200, await this.drivers.listDrivers(status, limit));
   };
 
-  public createDriver = async (
-    request: Request,
-    response: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const input = createDriverSchema.parse(request.body);
-      const driver = await this.driverService.createDriver(input);
-      response.status(201).json({ data: driver });
-    } catch (error: unknown) {
-      next(error);
-    }
+  public createDriver = async (_request: Request, response: Response): Promise<void> => {
+    sendData(
+      response,
+      201,
+      await this.drivers.createDriver(validated<CreateDriverBody>(response, 'body')),
+    );
   };
 
-  public getDriver = async (
-    request: Request,
-    response: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const { id } = driverIdParamsSchema.parse(request.params);
-      const driver = await this.driverService.getDriver(id);
-      response.status(200).json({ data: driver });
-    } catch (error: unknown) {
-      next(error);
-    }
+  public getDriver = async (_request: Request, response: Response): Promise<void> => {
+    const { id } = validated<DriverIdParams>(response, 'params');
+    sendData(response, 200, await this.drivers.getDriver(id));
   };
 
-  public updateStatus = async (
-    request: Request,
-    response: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const { id } = driverIdParamsSchema.parse(request.params);
-      const { status } = updateDriverStatusSchema.parse(request.body);
-      const driver = await this.driverService.updateStatus(id, status);
-      response.status(200).json({ data: driver });
-    } catch (error: unknown) {
-      next(error);
-    }
+  public updateStatus = async (_request: Request, response: Response): Promise<void> => {
+    const { id } = validated<DriverIdParams>(response, 'params');
+    const { status } = validated<UpdateDriverStatusBody>(response, 'body');
+    sendData(response, 200, await this.drivers.updateStatus(id, status));
   };
 
-  public updateLocation = async (
-    request: Request,
-    response: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const { id } = driverIdParamsSchema.parse(request.params);
-      const input = updateDriverLocationSchema.parse(request.body);
-      const location = await this.driverService.updateLocation(id, input);
-      response.status(200).json({ data: location });
-    } catch (error: unknown) {
-      next(error);
-    }
+  public updateLocation = async (_request: Request, response: Response): Promise<void> => {
+    const { id } = validated<DriverIdParams>(response, 'params');
+    sendData(
+      response,
+      200,
+      await this.drivers.updateLocation(id, validated<UpdateDriverLocationBody>(response, 'body')),
+    );
   };
 }

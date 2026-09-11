@@ -137,9 +137,8 @@ export const optimizeSequence = (
 
 export class RoutingService {
   public constructor(
-    private readonly provider = process.env.ROUTING_PROVIDER?.trim() || 'straight-line',
-    private readonly baseUrl = process.env.ROUTING_BASE_URL?.trim() ||
-      'https://router.project-osrm.org',
+    private readonly provider = 'straight-line',
+    private readonly baseUrl = 'https://router.project-osrm.org',
     private readonly fetcher: typeof fetch = fetch,
   ) {}
 

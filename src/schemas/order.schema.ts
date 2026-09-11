@@ -72,6 +72,10 @@ export const listOrdersQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });
 
+export const exportOrdersQuerySchema = listOrdersQuerySchema.extend({
+  limit: z.coerce.number().int().min(1).max(100).default(100),
+});
+
 export const assignDriverSchema = z
   .object({
     driverId: z.string().trim().min(1).max(100),

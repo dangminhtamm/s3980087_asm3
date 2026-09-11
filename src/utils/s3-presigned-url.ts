@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto';
 
 import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import type { S3Client } from '@aws-sdk/client-s3';
 
-import { DELIVERY_PROOF_BUCKET, s3PresignClient } from '../config/s3.js';
 import type { ProofContentType } from '../domain/entities/delivery-proof.js';
 
 const FILE_EXTENSIONS: Record<ProofContentType, string> = {
@@ -30,6 +30,8 @@ export interface PresignedUpload {
  * to S3. The Content-Type is signed and must be sent unchanged by the frontend.
  */
 export const createProofOfDeliveryUploadUrl = async (
+  client: S3Client,
+  bucket: string,
   orderId: string,
   contentType: ProofContentType,
 ): Promise<PresignedUpload> => {
@@ -40,13 +42,13 @@ export const createProofOfDeliveryUploadUrl = async (
   ].join('/');
 
   const command = new PutObjectCommand({
-    Bucket: DELIVERY_PROOF_BUCKET,
+    Bucket: bucket,
     Key: objectKey,
     ContentType: contentType,
     Metadata: { orderid: orderId },
   });
 
-  const uploadUrl = await getSignedUrl(s3PresignClient, command, {
+  const uploadUrl = await getSignedUrl(client, command, {
     expiresIn: UPLOAD_URL_EXPIRY_SECONDS,
     // Keep the order metadata as a signed request header. Without this option,
     // the SDK may hoist it into the query string; sending it again from the
@@ -72,12 +74,12 @@ export interface PresignedProofView {
 
 /** Creates a short-lived read URL; the proof bucket remains private. */
 export const createProofOfDeliveryViewUrl = async (
+  client: S3Client,
+  bucket: string,
   objectKey: string,
 ): Promise<PresignedProofView> => ({
-  viewUrl: await getSignedUrl(
-    s3PresignClient,
-    new GetObjectCommand({ Bucket: DELIVERY_PROOF_BUCKET, Key: objectKey }),
-    { expiresIn: VIEW_URL_EXPIRY_SECONDS },
-  ),
+  viewUrl: await getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: objectKey }), {
+    expiresIn: VIEW_URL_EXPIRY_SECONDS,
+  }),
   expiresIn: VIEW_URL_EXPIRY_SECONDS,
 });
