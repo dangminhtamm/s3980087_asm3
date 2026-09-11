@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { cloudFleetApi } from '../services/api';
+import { cloudFleetApi } from '../shared/api/http-client';
 import type { ApiEnvelope } from '../types/order';
 import type { DriverLocation } from '../types/admin';
 

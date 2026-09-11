@@ -10,7 +10,7 @@ import {
 import { UserManager, type User } from 'oidc-client-ts';
 
 import { runtimeEnv, type CloudFleetRuntimeVariable } from '../config/runtime';
-import { clearOfflineData } from '../services/offline-store';
+import { clearOfflineData } from '../features/offline-sync';
 
 export type UserRole = 'ADMIN' | 'DRIVER';
 

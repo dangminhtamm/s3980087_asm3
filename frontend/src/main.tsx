@@ -7,7 +7,7 @@ import App from './App';
 import { CloudFleetAuthProvider } from './auth/CloudFleetAuth';
 import { ToastProvider } from './components/ui';
 import './index.css';
-import { flushOfflineOutbox } from './services/api';
+import { flushOfflineOutbox } from './features/offline-sync';
 import { startWebVitalsReporting } from './services/telemetry';
 
 startWebVitalsReporting();

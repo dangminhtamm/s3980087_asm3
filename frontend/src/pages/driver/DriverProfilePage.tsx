@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { useCloudFleetAuth } from '../../auth/CloudFleetAuth';
 import { runtimeEnv } from '../../config/runtime';
-import { getDriver } from '../../services/operations';
+import { getDriver } from '../../features/drivers/api/drivers.client';
 import { disableDriverPush, enableDriverPush, getPushSubscription } from '../../services/push';
 import type { FleetDriver } from '../../types/admin';
 import { formatLocationInEnglish } from '../../utils/location';

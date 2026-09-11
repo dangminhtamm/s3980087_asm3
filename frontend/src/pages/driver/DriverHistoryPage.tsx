@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useCloudFleetAuth } from '../../auth/CloudFleetAuth';
 import { DataSourceBadge, EmptyState, ErrorState, Skeleton } from '../../components/ui';
 import { runtimeEnv } from '../../config/runtime';
-import { getOrderEvents, listOrders } from '../../services/operations';
+import { getOrderEvents, listOrders } from '../../features/orders/api/orders.client';
 import type { AdminOrder, OrderEvent } from '../../types/admin';
 import { formatLocationInEnglish } from '../../utils/location';
 

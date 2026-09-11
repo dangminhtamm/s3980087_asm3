@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 import { AdminPageHeader } from '../../components/admin/AdminPageHeader';
 import { Button, EmptyState, ErrorState, StatusBadge } from '../../components/ui';
-import { listOperationalIssues } from '../../services/operations';
+import { listOperationalIssues } from '../../features/analytics/api/analytics.client';
 import type { OperationalIssue } from '../../types/admin';
 
 const when = (value: string | null) =>

@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 
 import { DeliveryMap } from '../../components/DeliveryMap';
 import { Button, ErrorState, PageSkeleton, StatusBadge, useToast } from '../../components/ui';
-import { getRoute, reorderRoute, reoptimizeRoute } from '../../services/operations';
+import { getRoute, reorderRoute, reoptimizeRoute } from '../../features/routes/api/routes.client';
 import type { DeliveryRoute } from '../../types/admin';
 
 const time = (value: string | null) =>

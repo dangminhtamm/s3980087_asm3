@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 import { AdminPageHeader } from '../../components/admin/AdminPageHeader';
 import { Button, EmptyState, ErrorState, StatusBadge } from '../../components/ui';
-import { listRoutes } from '../../services/operations';
+import { listRoutes } from '../../features/routes/api/routes.client';
 import type { DeliveryRoute } from '../../types/admin';
 
 const distance = (meters: number) =>

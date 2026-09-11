@@ -66,6 +66,17 @@ pages -> feature components/hooks -> feature API or offline ports -> shared HTTP
 - Production API adapters, offline adapters and mock/demo adapters remain separate and interchangeable.
 - Public tracking DTOs must never expose private order or driver fields.
 
+The frontend is organized around `features/orders`, `features/drivers`, `features/routes`,
+`features/tracking`, `features/proof-of-delivery`, `features/analytics` and
+`features/offline-sync`. Shared HTTP, auth, runtime configuration and UI exports live under
+`shared/`. The legacy files under `services/` are compatibility barrels only; new code imports
+the owning feature directly.
+
+`features/offline-sync` separates its IndexedDB repository, retry/conflict policy and sync engine.
+The mock fallback is a development-only adapter loaded lazily, so mutable demo state is excluded
+from production bundles. Frontend behavior is characterized with Vitest, React Testing Library,
+MSW and fake IndexedDB.
+
 ## Infrastructure boundary
 
 The root CDK stack is the composition layer. Resource groups will become focused constructs for operational data, storage, identity, frontend hosting, API compute, realtime, analytics and observability. Application code must not import CDK modules.

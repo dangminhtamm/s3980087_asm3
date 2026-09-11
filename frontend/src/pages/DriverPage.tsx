@@ -13,7 +13,7 @@ import {
 } from '../components/ui';
 import { useDriverLocationTracking } from '../hooks/useDriverLocationTracking';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
-import { listOrders } from '../services/operations';
+import { listOrders } from '../features/orders/api/orders.client';
 import type { AdminOrder } from '../types/admin';
 import type { MapCoordinate } from '../types/map';
 import type { DeliveryOrder } from '../types/order';

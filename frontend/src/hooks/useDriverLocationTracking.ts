@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { updateDriverLocation } from '../services/operations';
+import { updateDriverLocation } from '../features/drivers/api/drivers.client';
 
 export type TrackingStatus =
   'idle' | 'requesting' | 'tracking' | 'denied' | 'unsupported' | 'error';
