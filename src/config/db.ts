@@ -5,6 +5,7 @@ import {
   type DynamoDBClientConfig,
 } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { instrumentAwsClient } from '../observability/metrics.js';
 
 /**
  * Reads a required environment variable and fails during application startup.
@@ -46,6 +47,8 @@ export const dynamoDB = DynamoDBDocumentClient.from(dynamoDBClient, {
     convertClassInstanceToMap: false,
   },
 });
+
+instrumentAwsClient(dynamoDB.middlewareStack, 'DynamoDB');
 
 export const ORDERS_TABLE_NAME = getRequiredEnvironmentVariable(
   'DYNAMODB_TABLE_NAME',

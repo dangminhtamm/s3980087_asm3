@@ -25,9 +25,10 @@ export const enforceIdempotency = (
   }
 
   try {
+    const trackingToken = request.params.trackingToken;
     const started = await service.begin({
       key,
-      identity: request.authenticatedUser?.subject ?? request.params.trackingToken ?? 'anonymous',
+      identity: request.authenticatedUser?.subject ?? (Array.isArray(trackingToken) ? trackingToken[0] : trackingToken) ?? 'anonymous',
       method: request.method,
       path: request.originalUrl,
       body: request.body ?? null,

@@ -153,8 +153,8 @@ export const CloudFleetAuthProvider = ({ children }: { children: ReactNode }) =>
   }, []);
 
   const logout = useCallback(async () => {
-    if (!userManager) return;
     await clearOfflineData();
+    if (!userManager) return;
     await userManager.removeUser();
     if (cognitoLogoutUrl) window.location.assign(cognitoLogoutUrl);
   }, []);

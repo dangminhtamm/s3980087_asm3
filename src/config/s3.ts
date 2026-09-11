@@ -1,6 +1,7 @@
 import 'dotenv/config';
 
 import { S3Client, type S3ClientConfig } from '@aws-sdk/client-s3';
+import { instrumentAwsClient } from '../observability/metrics.js';
 
 const getRequiredEnvironmentVariable = (name: string): string => {
   const value = process.env[name]?.trim();
@@ -30,6 +31,7 @@ if (forcePathStyle) {
 
 /** Credentials come from the AWS SDK default chain/ECS task role. */
 export const s3Client = new S3Client(clientConfig);
+instrumentAwsClient(s3Client.middlewareStack, 'S3');
 
 /**
  * A Docker container reaches local S3 through its Compose hostname, while the

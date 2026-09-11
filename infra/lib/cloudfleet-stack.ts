@@ -17,6 +17,7 @@ import {
 } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as customResources from 'aws-cdk-lib/custom-resources';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
@@ -151,6 +152,7 @@ export class CloudFleetStack extends Stack {
       userPoolDomain,
       labRole,
     });
+    const observabilityDashboard = this.createObservabilityDashboard(prefix);
 
     // Explicit dependency documents the event flow even though the event source
     // construct already links the Lambda function and DynamoDB stream.
@@ -199,6 +201,9 @@ export class CloudFleetStack extends Stack {
     new CfnOutput(this, 'ApplicationSecretArn', {
       value: applicationSecret.secretArn,
       description: 'Update the placeholder Twilio and VAPID values after deployment.',
+    });
+    new CfnOutput(this, 'ObservabilityDashboardName', {
+      value: observabilityDashboard.dashboardName,
     });
   }
 
@@ -576,6 +581,8 @@ export class CloudFleetStack extends Stack {
           APP_SECRET_ARN: applicationSecret.secretArn,
           DYNAMODB_TABLE_NAME: table.tableName,
           TRACKING_BASE_URL: trackingBaseUrl,
+          OBSERVABILITY_ENVIRONMENT: prefix,
+          METRICS_SERVICE_NAME: 'cloudfleet-notification',
         },
         bundling: {
           minify: true,
@@ -989,6 +996,8 @@ export class CloudFleetStack extends Stack {
         ROUTING_BASE_URL: process.env.CLOUDFLEET_ROUTING_BASE_URL?.trim() || 'https://router.project-osrm.org',
         ROUTING_ORIGIN_LAT: process.env.CLOUDFLEET_ROUTING_ORIGIN_LAT?.trim() || '10.7769',
         ROUTING_ORIGIN_LNG: process.env.CLOUDFLEET_ROUTING_ORIGIN_LNG?.trim() || '106.7009',
+        OBSERVABILITY_ENVIRONMENT: prefix,
+        METRICS_SERVICE_NAME: 'cloudfleet-api',
       },
       secrets: {
         VAPID_PUBLIC_KEY: ecs.Secret.fromSecretsManager(applicationSecret, 'vapidPublicKey'),
@@ -1147,6 +1156,11 @@ export class CloudFleetStack extends Stack {
       integration,
     });
     httpApi.addRoutes({
+      path: '/api/telemetry/frontend',
+      methods: [apigwv2.HttpMethod.POST],
+      integration,
+    });
+    httpApi.addRoutes({
       path: '/api',
       methods: [apigwv2.HttpMethod.ANY],
       integration,
@@ -1160,6 +1174,84 @@ export class CloudFleetStack extends Stack {
     });
 
     return httpApi;
+  }
+
+  private createObservabilityDashboard(prefix: string): cloudwatch.Dashboard {
+    const search = (
+      metricName: string,
+      statistic: string,
+      dimensionNames: string,
+      label: string,
+    ): cloudwatch.MathExpression => new cloudwatch.MathExpression({
+      expression: `SEARCH('{CloudFleet/Observability,${dimensionNames}} MetricName="${metricName}" Environment="${prefix}"', '${statistic}', 300)`,
+      label,
+      period: Duration.minutes(5),
+    });
+    const graph = (
+      title: string,
+      metrics: cloudwatch.IMetric[],
+      width = 12,
+    ): cloudwatch.GraphWidget => new cloudwatch.GraphWidget({
+      title,
+      left: metrics,
+      width,
+      height: 6,
+      leftYAxis: { min: 0 },
+      view: cloudwatch.GraphWidgetView.TIME_SERIES,
+    });
+
+    const dashboard = new cloudwatch.Dashboard(this, 'ObservabilityDashboard', {
+      dashboardName: `${prefix}-performance`,
+      defaultInterval: Duration.hours(3),
+    });
+    dashboard.addWidgets(
+      graph('Endpoint latency p95', [
+        search('HttpRequestDuration', 'p95', 'Service,Environment,Method,Route', 'p95 latency'),
+      ]),
+      graph('Endpoint throughput and errors', [
+        search('HttpRequestCount', 'Sum', 'Service,Environment,Method,Route', 'requests'),
+        search('HttpErrorCount', 'Sum', 'Service,Environment,Method,Route', 'errors'),
+        search('HttpErrorRate', 'Average', 'Service,Environment,Method,Route', 'error rate %'),
+      ]),
+      graph('DynamoDB latency', [
+        search('DynamoDBRequestDuration', 'p95', 'Service,Environment,Dependency,Operation', 'p95 DynamoDB'),
+      ]),
+      graph('DynamoDB consumed capacity', [
+        search('DynamoDBConsumedCapacity', 'Sum', 'Service,Environment,Dependency,Operation', 'capacity units'),
+        search('DynamoDBScannedItemCount', 'Sum', 'Service,Environment,Dependency,Operation', 'scanned items'),
+        search('DynamoDBReturnedItemCount', 'Sum', 'Service,Environment,Dependency,Operation', 'returned items'),
+      ]),
+      graph('Routing, geocoding and optimization latency', [
+        search('RoutingProviderDuration', 'p95', 'Service,Environment,Provider,Operation,Outcome', 'OSRM p95'),
+        search('GeocodingDuration', 'p95', 'Service,Environment,Provider,Cache,Outcome', 'geocoding p95'),
+        search('RouteOptimizationDuration', 'p95', 'Service,Environment,Mode,StopBucket', 'optimization p95'),
+        search('RoutePlanningDuration', 'p95', 'Service,Environment,Provider,StopBucket', 'route plan p95'),
+      ]),
+      graph('POD upload and registration', [
+        search('PodUploadDuration', 'p95', 'Service,Environment,Outcome', 'browser → S3 p95'),
+        search('S3ProofVerifyDuration', 'p95', 'Service,Environment,Outcome', 'S3 verify p95'),
+        search('ProofRegisterDuration', 'p95', 'Service,Environment,Outcome', 'register p95'),
+      ]),
+      graph('Push and SMS outcomes', [
+        search('PushSuccessCount', 'Sum', 'Service,Environment,Provider,Outcome', 'push success'),
+        search('PushFailureCount', 'Sum', 'Service,Environment,Provider,Outcome', 'push failure'),
+        search('PushSuccessRate', 'Average', 'Service,Environment,Provider', 'push success %'),
+        search('SmsSuccessCount', 'Sum', 'Service,Environment,Provider,Outcome', 'SMS success'),
+        search('SmsFailureCount', 'Sum', 'Service,Environment,Provider,Outcome', 'SMS failure'),
+        search('SmsSuccessRate', 'Average', 'Service,Environment,Provider', 'SMS success %'),
+      ]),
+      graph('Frontend Web Vitals p75', [
+        search('WebVitalLCP', 'p75', 'Service,Environment,Vital,Rating,Page,DeviceType', 'LCP'),
+        search('WebVitalINP', 'p75', 'Service,Environment,Vital,Rating,Page,DeviceType', 'INP'),
+        search('WebVitalCLS', 'p75', 'Service,Environment,Vital,Rating,Page,DeviceType', 'CLS'),
+      ]),
+      graph('Offline outbox health', [
+        search('OfflineOutboxSize', 'Maximum', 'Service,Environment,Event', 'max queue size'),
+        search('OfflineOutboxRetryCount', 'Sum', 'Service,Environment,Event', 'retries'),
+        search('OfflineOutboxConflictCount', 'Sum', 'Service,Environment,Event', 'conflicts'),
+      ]),
+    );
+    return dashboard;
   }
 
   private parseCorsOrigins(): string[] {

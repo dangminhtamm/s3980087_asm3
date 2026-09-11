@@ -24,7 +24,12 @@
     "local:logs": "docker compose logs -f backend local-init",
     "local:e2e": "npm run build && node dist/scripts/local-e2e.js",
     "local:reset": "docker compose down --volumes",
-    "generate:vapid": "web-push generate-vapid-keys"
+    "generate:vapid": "web-push generate-vapid-keys",
+    "perf:50": "USERS=50 k6 run load/k6/cloudfleet-baseline.js",
+    "perf:200": "USERS=200 k6 run load/k6/cloudfleet-baseline.js",
+    "perf:500": "USERS=500 k6 run load/k6/cloudfleet-baseline.js",
+    "perf:baseline": "K6_ENFORCE_THRESHOLDS=false npm run perf:50 && K6_ENFORCE_THRESHOLDS=false npm run perf:200 && K6_ENFORCE_THRESHOLDS=false npm run perf:500 && npm run perf:report",
+    "perf:report": "node scripts/generate-baseline-report.mjs"
   },
   "engines": {
     "node": ">=20"
@@ -38,6 +43,7 @@
     "@aws-sdk/client-sfn": "^3.1126.0",
     "@aws-sdk/lib-dynamodb": "^3.0.0",
     "@aws-sdk/s3-request-presigner": "^3.0.0",
+    "@smithy/types": "^4.18.0",
     "aws-jwt-verify": "^5.2.1",
     "cors": "^2.8.5",
     "dotenv": "^17.0.0",

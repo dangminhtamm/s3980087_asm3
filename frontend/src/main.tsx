@@ -8,6 +8,9 @@ import { CloudFleetAuthProvider } from './auth/CloudFleetAuth';
 import { ToastProvider } from './components/ui';
 import './index.css';
 import { flushOfflineOutbox } from './services/api';
+import { startWebVitalsReporting } from './services/telemetry';
+
+startWebVitalsReporting();
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

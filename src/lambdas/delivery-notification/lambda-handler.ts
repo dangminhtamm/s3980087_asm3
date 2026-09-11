@@ -9,6 +9,7 @@ import {
 } from '@aws-sdk/client-secrets-manager';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { durationMsSince, emitMetrics, instrumentAwsClient } from '../../observability/metrics.js';
 
 const TWILIO_TIMEOUT_MS = 8_000;
 const E164_PHONE_NUMBER = /^\+[1-9]\d{7,14}$/;
@@ -33,6 +34,7 @@ const secretsManager = new SecretsManagerClient({});
 const database = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
   marshallOptions: { removeUndefinedValues: true },
 });
+instrumentAwsClient(database.middlewareStack, 'DynamoDB');
 let configurationPromise: Promise<TwilioConfiguration> | undefined;
 
 const getTwilioConfiguration = async (): Promise<TwilioConfiguration> => {
@@ -201,7 +203,26 @@ const processRecord = async (record: DynamoDBRecord): Promise<void> => {
   };
   const linkLabel = newStatus === 'DELIVERED' ? 'View confirmation' : 'Track or manage delivery';
   const message = `${messages[newStatus!] ?? 'Your CloudFleet delivery was updated.'}${trackingUrl ? ` ${linkLabel}: ${trackingUrl}` : ''}`;
-  const messageSid = await sendDeliverySms(customerPhone, message);
+  const smsStartedAt = process.hrtime.bigint();
+  emitMetrics([{ name: 'SmsAttemptCount', value: 1, unit: 'Count' }], { Provider: 'Twilio' });
+  let messageSid: string;
+  try {
+    messageSid = await sendDeliverySms(customerPhone, message);
+    emitMetrics([
+      { name: 'SmsProviderDuration', value: durationMsSince(smsStartedAt), unit: 'Milliseconds' },
+      { name: 'SmsSuccessCount', value: 1, unit: 'Count' },
+    ], { Provider: 'Twilio', Outcome: 'success' });
+    emitMetrics([{ name: 'SmsSuccessRate', value: 100, unit: 'Percent' }], { Provider: 'Twilio' });
+  } catch (error: unknown) {
+    emitMetrics([
+      { name: 'SmsProviderDuration', value: durationMsSince(smsStartedAt), unit: 'Milliseconds' },
+      { name: 'SmsFailureCount', value: 1, unit: 'Count' },
+    ], { Provider: 'Twilio', Outcome: 'error' }, {
+      errorName: error instanceof Error ? error.name : 'UnknownError',
+    });
+    emitMetrics([{ name: 'SmsSuccessRate', value: 0, unit: 'Percent' }], { Provider: 'Twilio' });
+    throw error;
+  }
   await writeSmsEvent(record, 'SMS_NOTIFICATION_SENT', {
     provider: 'Twilio',
     messageSid,

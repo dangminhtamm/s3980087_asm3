@@ -24,6 +24,22 @@ test('readiness verifies DynamoDB and S3', async () => {
   assert.deepEqual(body.dependencies, { dynamodb: 'ready', s3: 'ready' });
 });
 
+test('public frontend telemetry accepts a strict Web Vital payload', async () => {
+  const accepted = await apiRequest('/api/telemetry/frontend', 'POST', {
+    type: 'WEB_VITAL', name: 'INP', value: 140, delta: 20,
+    rating: 'good', page: 'driver', deviceType: 'mobile',
+    navigationType: 'navigate',
+  });
+  assert.equal(accepted.status, 202);
+
+  const rejected = await apiRequest('/api/telemetry/frontend', 'POST', {
+    type: 'WEB_VITAL', name: 'INP', value: 140, delta: 20,
+    rating: 'good', page: '/driver/secret-id', deviceType: 'mobile',
+    navigationType: 'navigate',
+  });
+  assert.equal(rejected.status, 400);
+});
+
 test('same Idempotency-Key replays a create response and rejects changed input', async () => {
   const key = randomUUID();
   const requestId = randomUUID();

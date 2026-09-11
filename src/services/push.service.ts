@@ -4,6 +4,7 @@ import { DeleteCommand, PutCommand, QueryCommand, type DynamoDBDocumentClient } 
 import webPush from 'web-push';
 
 import type { DriverPushPayload, DriverPushSubscription, DriverPushSubscriptionInput } from '../domain/entities/push.js';
+import { durationMsSince, emitMetrics } from '../observability/metrics.js';
 
 const subscriptionId = (endpoint: string): string => createHash('sha256').update(endpoint).digest('hex');
 
@@ -51,7 +52,10 @@ export class PushService {
   }
 
   public async notifyDriver(driverId: string, payload: DriverPushPayload): Promise<{ sent: number; configured: boolean }> {
-    if (!this.publicKey || !this.privateKey) return { sent: 0, configured: false };
+    if (!this.publicKey || !this.privateKey) {
+      emitMetrics([{ name: 'PushNotConfiguredCount', value: 1, unit: 'Count' }], { Provider: 'web-push' });
+      return { sent: 0, configured: false };
+    }
     const result = await this.database.send(new QueryCommand({
       TableName: this.tableName,
       KeyConditionExpression: 'PK = :driver AND begins_with(SK, :push)',
@@ -60,10 +64,25 @@ export class PushService {
     let sent = 0;
     await Promise.all((result.Items ?? []).map(async (item) => {
       if (typeof item.endpoint !== 'string' || typeof item.SK !== 'string' || !item.keys) return;
+      const startedAt = process.hrtime.bigint();
       try {
         await webPush.sendNotification({ endpoint: item.endpoint, expirationTime: typeof item.expirationTime === 'number' ? item.expirationTime : null, keys: item.keys as { p256dh: string; auth: string } }, JSON.stringify(payload), { TTL: 60 * 60 });
         sent += 1;
+        emitMetrics([
+          { name: 'PushDeliveryDuration', value: durationMsSince(startedAt), unit: 'Milliseconds' },
+          { name: 'PushAttemptCount', value: 1, unit: 'Count' },
+          { name: 'PushSuccessCount', value: 1, unit: 'Count' },
+        ], { Provider: 'web-push', Outcome: 'success' });
+        emitMetrics([{ name: 'PushSuccessRate', value: 100, unit: 'Percent' }], { Provider: 'web-push' });
       } catch (error: unknown) {
+        emitMetrics([
+          { name: 'PushDeliveryDuration', value: durationMsSince(startedAt), unit: 'Milliseconds' },
+          { name: 'PushAttemptCount', value: 1, unit: 'Count' },
+          { name: 'PushFailureCount', value: 1, unit: 'Count' },
+        ], { Provider: 'web-push', Outcome: 'error' }, {
+          errorName: error instanceof Error ? error.name : 'UnknownError',
+        });
+        emitMetrics([{ name: 'PushSuccessRate', value: 0, unit: 'Percent' }], { Provider: 'web-push' });
         const statusCode = typeof error === 'object' && error !== null && 'statusCode' in error ? (error as { statusCode?: unknown }).statusCode : null;
         if (statusCode === 404 || statusCode === 410) {
           await this.database.send(new DeleteCommand({ TableName: this.tableName, Key: { PK: `DRIVER#${driverId}`, SK: item.SK } }));

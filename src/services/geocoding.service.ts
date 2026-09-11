@@ -1,4 +1,5 @@
 import { AppError } from '../errors/app-error.js';
+import { durationMsSince, emitMetrics } from '../observability/metrics.js';
 
 export interface GeocodingCandidate {
   placeId: string;
@@ -36,10 +37,21 @@ export class GeocodingService {
     }
     const cacheKey = `${countryCode}:${limit}:${address}`.toLowerCase();
     const cached = this.cache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) return cached.data;
+    if (cached && cached.expiresAt > Date.now()) {
+      emitMetrics([
+        { name: 'GeocodingRequestCount', value: 1, unit: 'Count' },
+        { name: 'GeocodingDuration', value: 0, unit: 'Milliseconds' },
+      ], { Provider: this.provider, Cache: 'hit', Outcome: 'success' });
+      return cached.data;
+    }
 
     const waitMs = Math.max(0, this.nextRequestAt - Date.now());
-    if (waitMs) await new Promise<void>((resolve) => setTimeout(resolve, waitMs));
+    if (waitMs) {
+      await new Promise<void>((resolve) => setTimeout(resolve, waitMs));
+      emitMetrics([{ name: 'GeocodingThrottleWaitDuration', value: waitMs, unit: 'Milliseconds' }], {
+        Provider: this.provider,
+      });
+    }
     this.nextRequestAt = Date.now() + Math.max(0, this.minIntervalMs);
 
     const url = new URL('/search', this.baseUrl);
@@ -48,19 +60,35 @@ export class GeocodingService {
     url.searchParams.set('addressdetails', '1');
     url.searchParams.set('countrycodes', countryCode);
     url.searchParams.set('limit', String(limit));
-    const response = await this.fetcher(url, {
-      headers: { 'User-Agent': this.userAgent, Accept: 'application/json' },
-      signal: AbortSignal.timeout(8_000),
-    });
-    if (!response.ok) throw new AppError(502, 'Geocoding provider is unavailable', 'GEOCODING_PROVIDER_ERROR');
-    const raw = await response.json() as NominatimResult[];
-    const data = raw.map((result) => ({
-      placeId: String(result.place_id), formattedAddress: result.display_name,
-      lat: Number(result.lat), lng: Number(result.lon),
-      region: result.address?.city ?? result.address?.town ?? result.address?.county ?? result.address?.state ?? null,
-      importance: result.importance ?? 0,
-    })).filter((result) => Number.isFinite(result.lat) && Number.isFinite(result.lng));
-    this.cache.set(cacheKey, { expiresAt: Date.now() + 24 * 60 * 60 * 1000, data });
-    return data;
+    const startedAt = process.hrtime.bigint();
+    try {
+      const response = await this.fetcher(url, {
+        headers: { 'User-Agent': this.userAgent, Accept: 'application/json' },
+        signal: AbortSignal.timeout(8_000),
+      });
+      if (!response.ok) throw new AppError(502, 'Geocoding provider is unavailable', 'GEOCODING_PROVIDER_ERROR');
+      const raw = await response.json() as NominatimResult[];
+      const data = raw.map((result) => ({
+        placeId: String(result.place_id), formattedAddress: result.display_name,
+        lat: Number(result.lat), lng: Number(result.lon),
+        region: result.address?.city ?? result.address?.town ?? result.address?.county ?? result.address?.state ?? null,
+        importance: result.importance ?? 0,
+      })).filter((result) => Number.isFinite(result.lat) && Number.isFinite(result.lng));
+      this.cache.set(cacheKey, { expiresAt: Date.now() + 24 * 60 * 60 * 1000, data });
+      emitMetrics([
+        { name: 'GeocodingDuration', value: durationMsSince(startedAt), unit: 'Milliseconds' },
+        { name: 'GeocodingRequestCount', value: 1, unit: 'Count' },
+      ], { Provider: this.provider, Cache: 'miss', Outcome: 'success' });
+      return data;
+    } catch (error: unknown) {
+      emitMetrics([
+        { name: 'GeocodingDuration', value: durationMsSince(startedAt), unit: 'Milliseconds' },
+        { name: 'GeocodingRequestCount', value: 1, unit: 'Count' },
+        { name: 'GeocodingErrorCount', value: 1, unit: 'Count' },
+      ], { Provider: this.provider, Cache: 'miss', Outcome: 'error' }, {
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
+      throw error;
+    }
   }
 }

@@ -25,6 +25,7 @@ import { RouteController } from '../controllers/route.controller.js';
 import { GeocodingController } from '../controllers/geocoding.controller.js';
 import { OperationsController } from '../controllers/operations.controller.js';
 import { PushController } from '../controllers/push.controller.js';
+import { TelemetryController } from '../controllers/telemetry.controller.js';
 import {
   authenticateRequest,
   requireRole,
@@ -57,6 +58,7 @@ const idempotencyService = new IdempotencyService(dynamoDB, ORDERS_TABLE_NAME);
 const orderController = new OrderController(orderService, orderEventService, pushService);
 const routeController = new RouteController(new RouteService(dynamoDB, ORDERS_TABLE_NAME, orderService, driverService), pushService);
 const pushController = new PushController(pushService);
+const telemetryController = new TelemetryController();
 const geocodingController = new GeocodingController(new GeocodingService());
 const operationsController = new OperationsController(new OperationsService(orderService));
 const requireOrderAccess = requireOrderOwnerOrAdmin(orderService);
@@ -103,6 +105,8 @@ const realtimeController = new RealtimeController(
 export const apiRouter = Router();
 
 // Capability-token route: deliberately public and registered before Cognito.
+// Payload fields are strict enums/numbers and contain no customer identifiers.
+apiRouter.post('/telemetry/frontend', telemetryController.collect);
 apiRouter.get('/tracking/:trackingToken', trackingController.get);
 apiRouter.post('/tracking/:trackingToken/feedback', enforceIdempotency(idempotencyService), trackingController.submitFeedback);
 apiRouter.post('/tracking/:trackingToken/reschedule', enforceIdempotency(idempotencyService), trackingController.requestReschedule);

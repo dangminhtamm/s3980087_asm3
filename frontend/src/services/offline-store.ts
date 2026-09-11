@@ -1,4 +1,5 @@
 import type { AdminOrder } from '../types/admin';
+import { sendFrontendTelemetry } from './telemetry';
 
 const DATABASE_NAME = 'cloudfleet-driver';
 const DATABASE_VERSION = 1;
@@ -68,6 +69,11 @@ export const queueMutation = async (mutation: Omit<QueuedMutation, 'id' | 'creat
   const transaction = database.transaction('outbox', 'readwrite');
   transaction.objectStore('outbox').put(queued);
   await transactionComplete(transaction);
+  const size = await getOutboxSize();
+  sendFrontendTelemetry({
+    type: 'OFFLINE_OUTBOX', event: 'queued', size,
+    retryCount: 0, conflictCount: 0, completedCount: 0, durationMs: 0,
+  });
   return queued;
 };
 
@@ -75,6 +81,11 @@ export const getQueuedMutations = async (): Promise<QueuedMutation[]> => {
   const database = await openDatabase();
   const records = await requestResult<QueuedMutation[]>(database.transaction('outbox').objectStore('outbox').getAll());
   return records.sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+};
+
+export const getOutboxSize = async (): Promise<number> => {
+  const database = await openDatabase();
+  return requestResult<number>(database.transaction('outbox').objectStore('outbox').count());
 };
 
 export const removeQueuedMutation = async (id: string): Promise<void> => {

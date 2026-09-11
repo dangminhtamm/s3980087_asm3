@@ -15,6 +15,7 @@ import {
 } from '../domain/entities/delivery-proof.js';
 import { AppError } from '../errors/app-error.js';
 import { createOrderEventItem } from '../domain/entities/order-event.js';
+import { durationMsSince, emitMetrics } from '../observability/metrics.js';
 
 const isProofContentType = (value: unknown): value is ProofContentType =>
   typeof value === 'string' &&
@@ -33,6 +34,31 @@ export class DeliveryProofService {
     input: RegisterDeliveryProofInput,
     uploadedBy: string,
   ): Promise<DeliveryProof> {
+    const startedAt = process.hrtime.bigint();
+    try {
+      const proof = await this.performRegistration(orderId, input, uploadedBy);
+      emitMetrics([
+        { name: 'ProofRegisterDuration', value: durationMsSince(startedAt), unit: 'Milliseconds' },
+        { name: 'ProofRegisterCount', value: 1, unit: 'Count' },
+      ], { Outcome: 'success' });
+      return proof;
+    } catch (error: unknown) {
+      emitMetrics([
+        { name: 'ProofRegisterDuration', value: durationMsSince(startedAt), unit: 'Milliseconds' },
+        { name: 'ProofRegisterCount', value: 1, unit: 'Count' },
+        { name: 'ProofRegisterErrorCount', value: 1, unit: 'Count' },
+      ], { Outcome: 'error' }, {
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
+      throw error;
+    }
+  }
+
+  private async performRegistration(
+    orderId: string,
+    input: RegisterDeliveryProofInput,
+    uploadedBy: string,
+  ): Promise<DeliveryProof> {
     const expectedPrefix = `proof-of-delivery/${orderId}/`;
 
     if (!input.objectKey.startsWith(expectedPrefix)) {
@@ -44,6 +70,7 @@ export class DeliveryProofService {
     }
 
     let object;
+    const verifyStartedAt = process.hrtime.bigint();
     try {
       object = await this.storage.send(
         new HeadObjectCommand({
@@ -51,7 +78,16 @@ export class DeliveryProofService {
           Key: input.objectKey,
         }),
       );
+      emitMetrics([{ name: 'S3ProofVerifyDuration', value: durationMsSince(verifyStartedAt), unit: 'Milliseconds' }], {
+        Outcome: 'success',
+      });
     } catch (error: unknown) {
+      emitMetrics([
+        { name: 'S3ProofVerifyDuration', value: durationMsSince(verifyStartedAt), unit: 'Milliseconds' },
+        { name: 'S3ProofVerifyErrorCount', value: 1, unit: 'Count' },
+      ], { Outcome: 'error' }, {
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
       if (
         error instanceof Error &&
         ['NotFound', 'NoSuchKey', 'Forbidden'].includes(error.name)

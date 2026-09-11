@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+            infra/package-lock.json
+      - run: npm ci
+      - run: npm ci --prefix frontend
+      - run: npm ci --prefix infra
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm --prefix frontend run build
+      - run: npm run infra:typecheck
+      - run: npm run infra:synth
+
+  performance-budget:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: grafana/setup-k6-action@v1
+      - run: npm run local:up
+      - name: Run 50-user performance gate
+        run: TEST_DURATION=20s npm run perf:50
+      - run: node scripts/check-performance-budget.mjs load/reports/k6-50.json
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-smoke-50-users
+          path: load/reports/
+      - if: always()
+        run: docker compose down --volumes

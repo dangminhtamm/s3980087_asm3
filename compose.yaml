@@ -76,6 +76,9 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:ops@cloudfleet.local}
+      OBSERVABILITY_ENVIRONMENT: local
+      METRICS_SERVICE_NAME: cloudfleet-api
+      METRICS_NAMESPACE: CloudFleet/Observability
     depends_on:
       dynamodb:
         condition: service_healthy

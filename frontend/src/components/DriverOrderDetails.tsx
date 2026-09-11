@@ -6,6 +6,7 @@ import type { DriverLocationTracking, TrackingStatus } from '../hooks/useDriverL
 import { cloudFleetApi } from '../services/api';
 import { getDeliveryProof, updateOrderStatus } from '../services/operations';
 import { getPendingProof, removePendingProof, savePendingProof } from '../services/offline-store';
+import { sendFrontendTelemetry } from '../services/telemetry';
 import type { MapCoordinate } from '../types/map';
 import type { ApiEnvelope, DeliveryOrder, PresignedUpload } from '../types/order';
 import { formatDistance, formatLocationFreshness, haversineDistanceKm } from '../utils/geo';
@@ -209,14 +210,21 @@ export const DriverOrderDetails = ({
           { params: { contentType } },
         );
         const { uploadUrl, objectKey, requiredHeaders } = uploadResponse.data.data;
-        await axios.put(uploadUrl, proofFile, {
-          headers: requiredHeaders,
-          timeout: 30_000,
-          onUploadProgress: (progressEvent) => {
-            const total = progressEvent.total ?? proofFile.size;
-            setUploadProgress(Math.min(100, Math.round((progressEvent.loaded / total) * 100)));
-          },
-        });
+        const uploadStartedAt = performance.now();
+        try {
+          await axios.put(uploadUrl, proofFile, {
+            headers: requiredHeaders,
+            timeout: 30_000,
+            onUploadProgress: (progressEvent) => {
+              const total = progressEvent.total ?? proofFile.size;
+              setUploadProgress(Math.min(100, Math.round((progressEvent.loaded / total) * 100)));
+            },
+          });
+          sendFrontendTelemetry({ type: 'POD_UPLOAD', outcome: 'success', durationMs: performance.now() - uploadStartedAt, sizeBytes: proofFile.size });
+        } catch (error: unknown) {
+          sendFrontendTelemetry({ type: 'POD_UPLOAD', outcome: 'error', durationMs: performance.now() - uploadStartedAt, sizeBytes: proofFile.size });
+          throw error;
+        }
         object = { objectKey, contentType, size: proofFile.size };
         setUploadedObject(object);
       }
