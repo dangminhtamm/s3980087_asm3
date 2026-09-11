@@ -3,13 +3,13 @@ import type { z } from 'zod';
 
 import { sendData } from '../http/response.js';
 import { validated } from '../middlewares/validation.js';
+import type { GeocodingPort } from '../ports/geocoding.port.js';
 import type { validateAddressSchema } from '../schemas/geocoding.schema.js';
-import type { GeocodingService } from '../services/geocoding.service.js';
 
 type ValidateAddressBody = z.infer<typeof validateAddressSchema>;
 
 export class GeocodingController {
-  public constructor(private readonly geocoding: GeocodingService) {}
+  public constructor(private readonly geocoding: GeocodingPort) {}
 
   public validate = async (_request: Request, response: Response): Promise<void> => {
     const input = validated<ValidateAddressBody>(response, 'body');

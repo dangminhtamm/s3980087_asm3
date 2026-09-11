@@ -8,10 +8,49 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 
 import type { DriverService } from '../../src/services/driver.service.js';
+import { VehicleCapacityPolicy } from '../../src/domain/policies/vehicle-capacity.policy.js';
+import type { DatabasePort } from '../../src/ports/database.port.js';
+import { systemClock } from '../../src/ports/clock.port.js';
+import { randomIdGenerator } from '../../src/ports/id-generator.port.js';
+import { RouteRepository } from '../../src/repositories/route.repository.js';
 import type { OrderService } from '../../src/services/order.service.js';
+import { RouteComparisonService } from '../../src/services/route-comparison.service.js';
+import { RoutePlanner } from '../../src/services/route-planner.js';
 import { RouteService } from '../../src/services/route.service.js';
 import type { RoutingService } from '../../src/services/routing.service.js';
+import { RouteAssignmentUseCase } from '../../src/use-cases/routes/route-assignment.use-case.js';
 import { driverFixture, orderFixture } from '../helpers/fixtures.js';
+
+const createRouteService = (
+  database: DynamoDBDocumentClient,
+  orders: OrderService,
+  drivers: DriverService,
+  routing: RoutingService,
+): RouteService => {
+  const repository = new RouteRepository(database as unknown as DatabasePort, 'table');
+  const planner = new RoutePlanner(routing);
+  const comparison = new RouteComparisonService(systemClock);
+  const assignment = new RouteAssignmentUseCase(
+    repository,
+    orders,
+    drivers,
+    planner,
+    comparison,
+    new VehicleCapacityPolicy(),
+    systemClock,
+    randomIdGenerator,
+    { lat: 10.7769, lng: 106.7009 },
+  );
+  return new RouteService(
+    repository,
+    assignment,
+    orders,
+    drivers,
+    planner,
+    comparison,
+    systemClock,
+  );
+};
 
 test('route creation writes metadata, stops, assignments, events and driver atomically', async () => {
   const orders = [
@@ -51,9 +90,8 @@ test('route creation writes metadata, stops, assignments, events and driver atom
     }),
   } as unknown as RoutingService;
 
-  const route = await new RouteService(
+  const route = await createRouteService(
     database,
-    'table',
     orderService,
     driverService,
     routing,
@@ -130,7 +168,9 @@ test('route reads combine stored plans with live order status and actual timing'
   } as unknown as DynamoDBDocumentClient;
   const orders = { getOrder: async () => order } as unknown as OrderService;
   const drivers = { getDriver: async () => driverFixture() } as unknown as DriverService;
-  const service = new RouteService(database, 'table', orders, drivers);
+  const service = createRouteService(database, orders, drivers, {
+    plan: async () => assert.fail('planning is not expected'),
+  } as unknown as RoutingService);
 
   const route = await service.getRoute(routeId);
   assert.equal(route.status, 'COMPLETED');

@@ -6,6 +6,7 @@ import {
   type OrderEventType,
 } from '../domain/entities/order-event.js';
 import type { Order } from '../domain/entities/order.js';
+import { DynamoKeys } from '../infrastructure/dynamodb/dynamo-keys.js';
 
 const isEventType = (value: unknown): value is OrderEventType =>
   typeof value === 'string' && ORDER_EVENT_TYPES.some((type) => type === value);
@@ -21,7 +22,10 @@ export class OrderEventService {
       new QueryCommand({
         TableName: this.tableName,
         KeyConditionExpression: 'PK = :pk AND begins_with(SK, :event)',
-        ExpressionAttributeValues: { ':pk': `ORDER#${order.orderId}`, ':event': 'EVENT#' },
+        ExpressionAttributeValues: {
+          ':pk': DynamoKeys.orderPk(order.orderId),
+          ':event': DynamoKeys.prefixes.event,
+        },
         ScanIndexForward: true,
       }),
     );

@@ -9,7 +9,32 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 
 import { OrderService } from '../../src/services/order.service.js';
+import { VehicleCapacityPolicy } from '../../src/domain/policies/vehicle-capacity.policy.js';
+import type { DatabasePort } from '../../src/ports/database.port.js';
+import { systemClock } from '../../src/ports/clock.port.js';
+import { randomIdGenerator } from '../../src/ports/id-generator.port.js';
+import { OrderRepository } from '../../src/repositories/order.repository.js';
+import { TrackingTokenService } from '../../src/services/tracking-token.service.js';
+import { AssignDriverUseCase } from '../../src/use-cases/orders/assign-driver.use-case.js';
+import { CreateOrderUseCase } from '../../src/use-cases/orders/create-order.use-case.js';
+import { UpdateOrderStatusUseCase } from '../../src/use-cases/orders/update-order-status.use-case.js';
 import { driverFixture, orderFixture } from '../helpers/fixtures.js';
+
+const createOrderService = (
+  database: DynamoDBDocumentClient,
+  trackingBaseUrl: string | null = null,
+): OrderService => {
+  const repository = new OrderRepository(database as unknown as DatabasePort, 'table');
+  const capacity = new VehicleCapacityPolicy();
+  const tokens = new TrackingTokenService(repository, trackingBaseUrl, systemClock);
+  return new OrderService(
+    repository,
+    new CreateOrderUseCase(repository, capacity, tokens, systemClock, randomIdGenerator),
+    new UpdateOrderStatusUseCase(repository, tokens, systemClock),
+    new AssignDriverUseCase(repository, capacity, systemClock),
+    tokens,
+  );
+};
 
 test('status update atomically records the order, route stop and event', async () => {
   const current = orderFixture({
@@ -43,7 +68,7 @@ test('status update atomically records the order, route stop and event', async (
     },
   } as unknown as DynamoDBDocumentClient;
 
-  const result = await new OrderService(database, 'table', 'https://tracking.test').updateStatus(
+  const result = await createOrderService(database, 'https://tracking.test').updateStatus(
     current.orderId,
     { status: 'ARRIVED' },
     'DRV-001',
@@ -82,7 +107,7 @@ test('assignment atomically updates the order, driver and audit event', async ()
     },
   } as unknown as DynamoDBDocumentClient;
 
-  const result = await new OrderService(database, 'table').assignDriver(
+  const result = await createOrderService(database).assignDriver(
     pending.orderId,
     driver.driverId,
     'admin-1',
@@ -108,7 +133,7 @@ test('creation stores order, audit event and both tracking-token records in one 
     },
   } as unknown as DynamoDBDocumentClient;
 
-  const order = await new OrderService(database, 'table').createOrder(
+  const order = await createOrderService(database).createOrder(
     {
       customerName: 'Customer',
       customerPhone: '+84901234567',
@@ -142,7 +167,7 @@ test('order queries preserve status and driver access patterns', async () => {
       return { Items: [stored] };
     },
   } as unknown as DynamoDBDocumentClient;
-  const service = new OrderService(database, 'table');
+  const service = createOrderService(database);
 
   assert.deepEqual(await service.listOrders({ status: 'PENDING', limit: 10 }), [stored]);
   assert.deepEqual(await service.listOrders({ driverId: 'DRV-001', limit: 10 }), [stored]);
@@ -162,7 +187,7 @@ test('tracking link reads the existing capability without exposing it on the ord
     },
   } as unknown as DynamoDBDocumentClient;
 
-  const link = await new OrderService(database, 'table', 'https://tracking.test/').getTrackingLink(
+  const link = await createOrderService(database, 'https://tracking.test/').getTrackingLink(
     stored.orderId,
   );
   assert.equal(link.url, 'https://tracking.test/track/existing-token');

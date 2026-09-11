@@ -21,8 +21,12 @@ HTTP routes/controllers -> application services -> domain
 
 The allowed responsibilities are:
 
-- `domain/`: entities, value types and pure business rules. It must not import Express, AWS SDK, environment variables or infrastructure code.
-- `services/`: application workflows and ports. Services may coordinate domain rules and injected adapters. During the next clean sprint, direct DynamoDB code will move behind repositories.
+- `domain/`: entities, value types and pure business rules such as order lifecycle, capacity and route-sequence optimization. It must not import Express, AWS SDK, environment variables or infrastructure code.
+- `use-cases/`: focused application commands. A use case coordinates injected ports and domain rules; it does not construct an AWS client or know an HTTP request.
+- `services/`: small application facades and focused orchestration services. `OrderService` and `RouteService` preserve the stable caller API while delegating writes to use cases and repositories.
+- `repositories/`: DynamoDB query, transaction and optimistic-concurrency ownership. Stored records are parsed by Zod mappers before entering application/domain code.
+- `ports/`: provider-neutral contracts for database execution, routing, geocoding, push delivery, time and ID generation.
+- `infrastructure/dynamodb/`: the document-client adapter, all DynamoDB key construction (`DynamoKeys`) and stored-record mappers.
 - `controllers/`: HTTP translation only: validate input, call one application workflow and serialize the result. Business rules, CSV loops and provider orchestration do not belong here.
 - `routes/`: URL, authentication, authorization and middleware composition. Object construction belongs in one composition root.
 - `config/`: validated runtime configuration and construction of external clients. Feature modules must not read `process.env` directly.
@@ -45,6 +49,10 @@ main.ts -> startServer() -> createContainer(config) -> createApiRouter(dependenc
 - `config/app-config.ts` is the only API runtime module allowed to read `process.env`; it validates and groups all settings before object construction.
 - Feature routers (`orders.routes`, `drivers.routes`, `routes.routes`, `tracking.routes`, and `analytics.routes`) own endpoint wiring while `api.routes.ts` only composes them and applies cross-cutting middleware.
 - Health and readiness endpoints live under `health/` and receive readiness probes as dependencies.
+
+## Mutation and notification boundary
+
+Order assignment and route creation finish their DynamoDB transaction before returning. Push notification is dispatched as a best-effort background side effect through `PushPort`; provider latency or failure cannot extend or roll back the primary mutation response. Delivery outcomes remain observable through push metrics and structured error logs.
 
 ## Frontend dependency direction
 

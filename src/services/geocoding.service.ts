@@ -1,14 +1,8 @@
 import { AppError } from '../errors/app-error.js';
 import { durationMsSince, emitMetrics } from '../observability/metrics.js';
+import type { GeocodingCandidate, GeocodingPort } from '../ports/geocoding.port.js';
 
-export interface GeocodingCandidate {
-  placeId: string;
-  formattedAddress: string;
-  lat: number;
-  lng: number;
-  region: string | null;
-  importance: number;
-}
+export type { GeocodingCandidate } from '../ports/geocoding.port.js';
 
 interface NominatimResult {
   place_id: number;
@@ -19,7 +13,7 @@ interface NominatimResult {
   address?: { city?: string; town?: string; county?: string; state?: string };
 }
 
-export class GeocodingService {
+export class GeocodingService implements GeocodingPort {
   private readonly cache = new Map<string, { expiresAt: number; data: GeocodingCandidate[] }>();
   private nextRequestAt = 0;
 

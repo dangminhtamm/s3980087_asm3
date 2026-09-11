@@ -14,7 +14,9 @@ import {
   type RegisterDeliveryProofInput,
 } from '../domain/entities/delivery-proof.js';
 import { AppError } from '../errors/app-error.js';
-import { createOrderEventItem } from '../domain/entities/order-event.js';
+import { createOrderEvent } from '../domain/entities/order-event.js';
+import { DynamoKeys } from '../infrastructure/dynamodb/dynamo-keys.js';
+import { mapOrderEventItem } from '../infrastructure/dynamodb/mappers/order-event.mapper.js';
 import { durationMsSince, emitMetrics } from '../observability/metrics.js';
 
 const isProofContentType = (value: unknown): value is ProofContentType =>
@@ -168,8 +170,7 @@ export class DeliveryProofService {
       gps: input.gps ?? null,
     };
     const item: DeliveryProofItem = {
-      PK: `ORDER#${orderId}`,
-      SK: 'PROOF#POD',
+      ...DynamoKeys.orderProof(orderId),
       ...proof,
     };
 
@@ -180,19 +181,21 @@ export class DeliveryProofService {
           {
             Put: {
               TableName: this.tableName,
-              Item: createOrderEventItem({
-                orderId,
-                type: 'PROOF_UPLOADED',
-                occurredAt: proof.uploadedAt,
-                actorId: uploadedBy,
-                metadata: {
-                  objectKey: proof.objectKey,
-                  contentType: proof.contentType,
-                  signatureCaptured: String(Boolean(proof.signatureDataUrl)),
-                  barcodeCaptured: String(Boolean(proof.barcode)),
-                  gpsCaptured: String(Boolean(proof.gps)),
-                },
-              }),
+              Item: mapOrderEventItem(
+                createOrderEvent({
+                  orderId,
+                  type: 'PROOF_UPLOADED',
+                  occurredAt: proof.uploadedAt,
+                  actorId: uploadedBy,
+                  metadata: {
+                    objectKey: proof.objectKey,
+                    contentType: proof.contentType,
+                    signatureCaptured: String(Boolean(proof.signatureDataUrl)),
+                    barcodeCaptured: String(Boolean(proof.barcode)),
+                    gpsCaptured: String(Boolean(proof.gps)),
+                  },
+                }),
+              ),
             },
           },
         ],
@@ -206,7 +209,7 @@ export class DeliveryProofService {
     const result = await this.database.send(
       new GetCommand({
         TableName: this.tableName,
-        Key: { PK: `ORDER#${orderId}`, SK: 'PROOF#POD' },
+        Key: DynamoKeys.orderProof(orderId),
         ConsistentRead: true,
       }),
     );

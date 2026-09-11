@@ -3,6 +3,7 @@ import { GetSecretValueCommand, SecretsManagerClient } from '@aws-sdk/client-sec
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { durationMsSince, emitMetrics, instrumentAwsClient } from '../../observability/metrics.js';
+import { DynamoKeys } from '../../infrastructure/dynamodb/dynamo-keys.js';
 
 const TWILIO_TIMEOUT_MS = 8_000;
 const E164_PHONE_NUMBER = /^\+[1-9]\d{7,14}$/;
@@ -116,7 +117,7 @@ const getTrackingUrl = async (orderId: string): Promise<string | null> => {
   const result = await database.send(
     new GetCommand({
       TableName: tableName,
-      Key: { PK: `ORDER#${orderId}`, SK: 'TRACKING#TOKEN' },
+      Key: DynamoKeys.orderTrackingToken(orderId),
       ConsistentRead: true,
     }),
   );
@@ -146,8 +147,8 @@ const writeSmsEvent = async (
     new PutCommand({
       TableName: tableName,
       Item: {
-        PK: `ORDER#${orderId}`,
-        SK: `EVENT#${occurredAt}#${eventId}`,
+        PK: DynamoKeys.orderPk(orderId),
+        SK: DynamoKeys.orderEventSk(occurredAt, eventId),
         eventId,
         orderId,
         type,

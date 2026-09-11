@@ -15,7 +15,9 @@ import { hashTrackingToken } from '../utils/tracking-token.js';
 import type { DriverService } from './driver.service.js';
 import type { OrderEventService } from './order-event.service.js';
 import type { OrderService } from './order.service.js';
-import { createOrderEventItem } from '../domain/entities/order-event.js';
+import { createOrderEvent } from '../domain/entities/order-event.js';
+import { DynamoKeys } from '../infrastructure/dynamodb/dynamo-keys.js';
+import { mapOrderEventItem } from '../infrastructure/dynamodb/mappers/order-event.mapper.js';
 
 const LOCATION_FRESH_MS = 5 * 60 * 1000;
 const APPROACHING_DISTANCE_KM = 1.5;
@@ -55,7 +57,7 @@ export class TrackingService {
       this.database.send(
         new GetCommand({
           TableName: this.tableName,
-          Key: { PK: `ORDER#${orderId}`, SK: 'PROOF#POD' },
+          Key: DynamoKeys.orderProof(orderId),
           ConsistentRead: true,
           ProjectionExpression: 'uploadedAt, recipientName, signatureDataUrl',
         }),
@@ -63,7 +65,7 @@ export class TrackingService {
       this.database.send(
         new GetCommand({
           TableName: this.tableName,
-          Key: { PK: `ORDER#${orderId}`, SK: 'CUSTOMER#FEEDBACK' },
+          Key: DynamoKeys.orderFeedback(orderId),
           ConsistentRead: true,
         }),
       ),
@@ -170,20 +172,22 @@ export class TrackingService {
             {
               Put: {
                 TableName: this.tableName,
-                Item: { PK: `ORDER#${orderId}`, SK: 'CUSTOMER#FEEDBACK', ...feedback },
+                Item: { ...DynamoKeys.orderFeedback(orderId), ...feedback },
                 ConditionExpression: 'attribute_not_exists(PK)',
               },
             },
             {
               Put: {
                 TableName: this.tableName,
-                Item: createOrderEventItem({
-                  orderId,
-                  type: 'CUSTOMER_FEEDBACK_RECEIVED',
-                  occurredAt: feedback.submittedAt,
-                  actorId: `customer:${tokenHash.slice(0, 12)}`,
-                  metadata: { rating: String(input.rating) },
-                }),
+                Item: mapOrderEventItem(
+                  createOrderEvent({
+                    orderId,
+                    type: 'CUSTOMER_FEEDBACK_RECEIVED',
+                    occurredAt: feedback.submittedAt,
+                    actorId: `customer:${tokenHash.slice(0, 12)}`,
+                    metadata: { rating: String(input.rating) },
+                  }),
+                ),
               },
             },
           ],
@@ -215,7 +219,7 @@ export class TrackingService {
             {
               Update: {
                 TableName: this.tableName,
-                Key: { PK: `ORDER#${orderId}`, SK: 'METADATA' },
+                Key: DynamoKeys.orderMetadata(orderId),
                 UpdateExpression: 'SET customerRescheduleRequest = :request',
                 ConditionExpression: '#status = :pending OR #status = :assigned',
                 ExpressionAttributeNames: { '#status': 'status' },
@@ -229,16 +233,18 @@ export class TrackingService {
             {
               Put: {
                 TableName: this.tableName,
-                Item: createOrderEventItem({
-                  orderId,
-                  type: 'CUSTOMER_RESCHEDULE_REQUESTED',
-                  occurredAt: request.requestedAt,
-                  actorId: `customer:${tokenHash.slice(0, 12)}`,
-                  metadata: {
-                    requestedWindowStart: request.requestedWindowStart,
-                    requestedWindowEnd: request.requestedWindowEnd,
-                  },
-                }),
+                Item: mapOrderEventItem(
+                  createOrderEvent({
+                    orderId,
+                    type: 'CUSTOMER_RESCHEDULE_REQUESTED',
+                    occurredAt: request.requestedAt,
+                    actorId: `customer:${tokenHash.slice(0, 12)}`,
+                    metadata: {
+                      requestedWindowStart: request.requestedWindowStart,
+                      requestedWindowEnd: request.requestedWindowEnd,
+                    },
+                  }),
+                ),
               },
             },
           ],
@@ -263,7 +269,7 @@ export class TrackingService {
     const lookup = await this.database.send(
       new GetCommand({
         TableName: this.tableName,
-        Key: { PK: `TRACKING#${tokenHash}`, SK: 'TOKEN' },
+        Key: DynamoKeys.trackingToken(tokenHash),
         ConsistentRead: true,
       }),
     );

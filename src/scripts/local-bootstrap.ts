@@ -21,6 +21,7 @@ import {
   TransactWriteCommand,
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
+import { DynamoKeys } from '../infrastructure/dynamodb/dynamo-keys.js';
 
 const requiredEnvironmentVariable = (name: string): string => {
   const value = process.env[name]?.trim();
@@ -258,8 +259,8 @@ const createSeedEvent = (
 ): Record<string, unknown> => {
   const eventId = `seed-${type.toLowerCase()}`;
   return {
-    PK: `ORDER#${orderId}`,
-    SK: `EVENT#${occurredAt}#${eventId}`,
+    PK: DynamoKeys.orderPk(orderId),
+    SK: DynamoKeys.orderEventSk(occurredAt, eventId),
     eventId,
     orderId,
     type,
@@ -278,7 +279,7 @@ const ensureSeedActiveOrderLock = async (orderId: string, driverId: string): Pro
           {
             ConditionCheck: {
               TableName: tableName,
-              Key: { PK: `ORDER#${orderId}`, SK: 'METADATA' },
+              Key: DynamoKeys.orderMetadata(orderId),
               ConditionExpression: '#status = :inProgress',
               ExpressionAttributeNames: { '#status': 'status' },
               ExpressionAttributeValues: { ':inProgress': 'IN_PROGRESS' },
@@ -287,7 +288,7 @@ const ensureSeedActiveOrderLock = async (orderId: string, driverId: string): Pro
           {
             Update: {
               TableName: tableName,
-              Key: { PK: `DRIVER#${driverId}`, SK: 'PROFILE' },
+              Key: DynamoKeys.driverProfile(driverId),
               UpdateExpression: 'SET activeOrderId = if_not_exists(activeOrderId, :orderId)',
               ConditionExpression:
                 'attribute_exists(PK) AND (attribute_not_exists(activeOrderId) OR activeOrderId = :orderId)',
@@ -321,14 +322,18 @@ const migrateLegacyAssignedOrders = async (): Promise<void> => {
       documentClient.send(
         new UpdateCommand({
           TableName: tableName,
-          Key: { PK: `ORDER#${item.orderId as string}`, SK: 'METADATA' },
+          Key: DynamoKeys.orderMetadata(item.orderId as string),
           UpdateExpression: 'SET #status = :assigned, GSI1SK = :gsi1sk, GSI2PK = :gsi2pk',
           ConditionExpression: '#status = :pending AND attribute_exists(driverId)',
           ExpressionAttributeNames: { '#status': 'status' },
           ExpressionAttributeValues: {
             ':assigned': 'ASSIGNED',
             ':pending': 'PENDING',
-            ':gsi1sk': `STATUS#ASSIGNED#CREATED#${item.createdAt as string}#ORDER#${item.orderId as string}`,
+            ':gsi1sk': DynamoKeys.driverOrderSk({
+              status: 'ASSIGNED',
+              createdAt: item.createdAt as string,
+              orderId: item.orderId as string,
+            }),
             ':gsi2pk': 'ORDER_STATUS#ASSIGNED',
           },
         }),
@@ -494,10 +499,9 @@ const seedData = async (): Promise<void> => {
   await Promise.all(
     drivers.map((driver) =>
       putSeedItem({
-        PK: `DRIVER#${driver.driverId}`,
-        SK: 'PROFILE',
-        GSI2PK: `DRIVER_STATUS#${driver.status}`,
-        GSI2SK: `UPDATED#${driver.updatedAt}#DRIVER#${driver.driverId}`,
+        ...DynamoKeys.driverProfile(driver.driverId),
+        GSI2PK: DynamoKeys.driverStatusPk(driver.status),
+        GSI2SK: DynamoKeys.driverUpdatedSk(driver.driverId, driver.updatedAt),
         ...driver,
       }),
     ),
@@ -507,14 +511,13 @@ const seedData = async (): Promise<void> => {
   await Promise.all(
     orders.map((order) =>
       putSeedItem({
-        PK: `ORDER#${order.orderId}`,
-        SK: 'METADATA',
-        GSI2PK: `ORDER_STATUS#${order.status}`,
-        GSI2SK: `CREATED#${order.createdAt}#ORDER#${order.orderId}`,
+        ...DynamoKeys.orderMetadata(order.orderId),
+        GSI2PK: DynamoKeys.orderStatusPk(order.status),
+        GSI2SK: DynamoKeys.orderCreatedSk(order),
         ...(order.driverId
           ? {
-              GSI1PK: `DRIVER#${order.driverId}`,
-              GSI1SK: `STATUS#${order.status}#CREATED#${order.createdAt}#ORDER#${order.orderId}`,
+              GSI1PK: DynamoKeys.driverPk(order.driverId),
+              GSI1SK: DynamoKeys.driverOrderSk(order),
             }
           : {}),
         ...order,
@@ -601,8 +604,7 @@ const seedData = async (): Promise<void> => {
     }),
   );
   await putSeedItem({
-    PK: `ORDER#${proofOrder.orderId}`,
-    SK: 'PROOF#POD',
+    ...DynamoKeys.orderProof(proofOrder.orderId),
     orderId: proofOrder.orderId,
     objectKey: proofObjectKey,
     contentType: 'image/png',

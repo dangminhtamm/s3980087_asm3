@@ -1,6 +1,6 @@
 # CloudFleet performance baseline
 
-Generated at: 2026-09-10T19:21:50.513Z
+Generated at: 2026-09-11T17:31:22.826Z
 
 Environment: http://backend:3000 (Docker local, warm service, 30s steady load per profile)
 
@@ -8,7 +8,7 @@ Environment: http://backend:3000 (Docker local, warm service, 30s steady load pe
 
 | Concurrent users | Throughput (flows/s) | Overall HTTP p95 (ms) | Flow error rate |
 | ---------------: | -------------------: | --------------------: | --------------: |
-|               50 |                 92.9 |                  56.7 |           0.00% |
+|               50 |                 90.5 |                 112.7 |           0.00% |
 |              200 |                133.4 |                2101.4 |           0.00% |
 |              500 |                 81.7 |               11201.4 |           0.00% |
 
@@ -16,11 +16,11 @@ Environment: http://backend:3000 (Docker local, warm service, 30s steady load pe
 
 | Flow p95 (ms)            | 50 users | 200 users | 500 users |
 | ------------------------ | -------: | --------: | --------: |
-| `get_orders`             |     31.0 |     772.2 |    3439.9 |
-| `tracking_refresh`       |     50.7 |    1934.1 |   14243.9 |
-| `gps_update`             |     76.2 |    2473.0 |   19189.1 |
-| `assign_status_mutation` |    529.9 |    9832.1 |   30517.3 |
-| `operations_issues`      |     30.0 |     778.8 |    3481.5 |
+| `get_orders`             |     72.2 |     772.2 |    3439.9 |
+| `tracking_refresh`       |    130.5 |    1934.1 |   14243.9 |
+| `gps_update`             |    183.6 |    2473.0 |   19189.1 |
+| `assign_status_mutation` |    670.3 |    9832.1 |   30517.3 |
+| `operations_issues`      |     64.9 |     778.8 |    3481.5 |
 
 ## Five slowest flows at 500 concurrent users
 

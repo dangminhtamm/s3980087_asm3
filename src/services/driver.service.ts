@@ -20,12 +20,13 @@ import {
   type UpdateDriverLocationInput,
 } from '../domain/entities/driver.js';
 import { AppError } from '../errors/app-error.js';
+import { DynamoKeys } from '../infrastructure/dynamodb/dynamo-keys.js';
 import type { RealtimeBroadcaster } from './realtime-broadcaster.service.js';
 
-const driverIndexPartitionKey = (status: DriverStatus): string => `DRIVER_STATUS#${status}`;
+const driverIndexPartitionKey = (status: DriverStatus): string => DynamoKeys.driverStatusPk(status);
 
 const driverIndexSortKey = (driver: Driver): string =>
-  `UPDATED#${driver.updatedAt}#DRIVER#${driver.driverId}`;
+  DynamoKeys.driverUpdatedSk(driver.driverId, driver.updatedAt);
 
 const isDriverStatus = (value: unknown): value is DriverStatus =>
   typeof value === 'string' && DRIVER_STATUSES.some((status) => status === value);
@@ -51,8 +52,7 @@ export class DriverService {
       maxVolumeM3: input.maxVolumeM3 ?? 0.25,
     };
     const item: DriverItem = {
-      PK: `DRIVER#${driver.driverId}`,
-      SK: 'PROFILE',
+      ...DynamoKeys.driverProfile(driver.driverId),
       GSI2PK: driverIndexPartitionKey(driver.status),
       GSI2SK: driverIndexSortKey(driver),
       ...driver,
@@ -99,7 +99,7 @@ export class DriverService {
     const result = await this.database.send(
       new GetCommand({
         TableName: this.tableName,
-        Key: { PK: `DRIVER#${driverId}`, SK: 'PROFILE' },
+        Key: DynamoKeys.driverProfile(driverId),
         ConsistentRead: true,
       }),
     );
@@ -118,7 +118,7 @@ export class DriverService {
     const result = await this.database.send(
       new UpdateCommand({
         TableName: this.tableName,
-        Key: { PK: `DRIVER#${driverId}`, SK: 'PROFILE' },
+        Key: DynamoKeys.driverProfile(driverId),
         UpdateExpression:
           'SET #status = :status, updatedAt = :updatedAt, GSI2PK = :gsi2pk, GSI2SK = :gsi2sk',
         ConditionExpression: 'attribute_exists(PK)',
@@ -154,8 +154,7 @@ export class DriverService {
       recordedAt,
     };
     const historyItem: DriverLocationItem = {
-      PK: `DRIVER#${driverId}`,
-      SK: `LOCATION#${recordedAt}#${randomUUID()}`,
+      ...DynamoKeys.driverLocation(driverId, recordedAt, randomUUID()),
       ...location,
       expiresAt: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
     };
@@ -173,7 +172,7 @@ export class DriverService {
           {
             Update: {
               TableName: this.tableName,
-              Key: { PK: `DRIVER#${driverId}`, SK: 'PROFILE' },
+              Key: DynamoKeys.driverProfile(driverId),
               UpdateExpression:
                 'SET lat = :lat, lng = :lng, locationUpdatedAt = :recordedAt, updatedAt = :recordedAt, GSI2SK = :gsi2sk',
               ConditionExpression: 'attribute_exists(PK)',

@@ -14,6 +14,8 @@ import type {
   DriverPushSubscriptionInput,
 } from '../domain/entities/push.js';
 import { durationMsSince, emitMetrics } from '../observability/metrics.js';
+import type { PushPort } from '../ports/push.port.js';
+import { DynamoKeys } from '../infrastructure/dynamodb/dynamo-keys.js';
 
 const subscriptionId = (endpoint: string): string =>
   createHash('sha256').update(endpoint).digest('hex');
@@ -30,7 +32,7 @@ const disabledPushConfiguration: PushConfiguration = {
   subject: 'mailto:ops@cloudfleet.local',
 };
 
-export class PushService {
+export class PushService implements PushPort {
   private readonly publicKey: string | null;
   private readonly privateKey: string | null;
 
@@ -57,8 +59,7 @@ export class PushService {
     const now = new Date().toISOString();
     const id = subscriptionId(input.endpoint);
     const item: DriverPushSubscription & { PK: string; SK: string } = {
-      PK: `DRIVER#${driverId}`,
-      SK: `PUSH#${id}`,
+      ...DynamoKeys.driverPush(driverId, id),
       driverId,
       subscriptionId: id,
       endpoint: input.endpoint,
@@ -76,7 +77,7 @@ export class PushService {
     await this.database.send(
       new DeleteCommand({
         TableName: this.tableName,
-        Key: { PK: `DRIVER#${driverId}`, SK: `PUSH#${subscriptionId(endpoint)}` },
+        Key: DynamoKeys.driverPush(driverId, subscriptionId(endpoint)),
       }),
     );
   }
@@ -95,7 +96,10 @@ export class PushService {
       new QueryCommand({
         TableName: this.tableName,
         KeyConditionExpression: 'PK = :driver AND begins_with(SK, :push)',
-        ExpressionAttributeValues: { ':driver': `DRIVER#${driverId}`, ':push': 'PUSH#' },
+        ExpressionAttributeValues: {
+          ':driver': DynamoKeys.driverPk(driverId),
+          ':push': DynamoKeys.prefixes.push,
+        },
       }),
     );
     let sent = 0;
@@ -156,7 +160,7 @@ export class PushService {
             await this.database.send(
               new DeleteCommand({
                 TableName: this.tableName,
-                Key: { PK: `DRIVER#${driverId}`, SK: item.SK },
+                Key: { PK: DynamoKeys.driverPk(driverId), SK: item.SK },
               }),
             );
             return;

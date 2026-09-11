@@ -31,18 +31,11 @@ export interface OrderEvent {
   metadata: Record<string, string>;
 }
 
-export interface OrderEventItem extends OrderEvent {
-  PK: string;
-  SK: string;
-}
-
-export const createOrderEventItem = (
+export const createOrderEvent = (
   input: Omit<OrderEvent, 'eventId' | 'source'> & { eventId?: string },
-): OrderEventItem => {
+): OrderEvent => {
   const eventId = input.eventId ?? randomUUID();
   return {
-    PK: `ORDER#${input.orderId}`,
-    SK: `EVENT#${input.occurredAt}#${eventId}`,
     eventId,
     orderId: input.orderId,
     type: input.type,
