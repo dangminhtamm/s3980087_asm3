@@ -1,0 +1,46 @@
+import type { Driver } from '../../src/domain/entities/driver.js';
+import type { Order } from '../../src/domain/entities/order.js';
+
+export const orderFixture = (overrides: Partial<Order> = {}): Order => ({
+  orderId: '00000000-0000-4000-8000-000000000001',
+  customerName: 'Customer',
+  customerPhone: '+84901234567',
+  dropoffAddress: '1 Main Street',
+  region: 'District 1',
+  lat: 10.77,
+  lng: 106.7,
+  status: 'PENDING',
+  driverId: null,
+  createdAt: '2026-09-10T00:00:00.000Z',
+  deliveredAt: null,
+  exception: null,
+  timeWindowStart: null,
+  timeWindowEnd: null,
+  packageWeightKg: 1,
+  packageVolumeM3: 0.01,
+  serviceDurationMinutes: 10,
+  routeId: null,
+  stopSequence: null,
+  startedAt: null,
+  arrivedAt: null,
+  plannedArrivalAt: null,
+  customerRescheduleRequest: null,
+  ...overrides,
+});
+
+export const driverFixture = (overrides: Partial<Driver> = {}): Driver => ({
+  driverId: 'DRV-001',
+  name: 'Driver',
+  phone: '+84901110001',
+  vehiclePlate: '51A-000.01',
+  currentArea: 'District 1',
+  status: 'AVAILABLE',
+  completedToday: 0,
+  lat: 10.76,
+  lng: 106.69,
+  locationUpdatedAt: '2026-09-10T00:00:00.000Z',
+  updatedAt: '2026-09-10T00:00:00.000Z',
+  maxWeightKg: 20,
+  maxVolumeM3: 0.25,
+  ...overrides,
+});

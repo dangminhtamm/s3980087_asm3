@@ -22,10 +22,7 @@ import {
   type UpdateOrderStatusInput,
 } from '../domain/entities/order.js';
 import { AppError } from '../errors/app-error.js';
-import {
-  createOrderEventItem,
-  type OrderEventType,
-} from '../domain/entities/order-event.js';
+import { createOrderEventItem, type OrderEventType } from '../domain/entities/order-event.js';
 import {
   allowedOrderTransitions,
   canTransitionOrder,
@@ -53,15 +50,13 @@ const STATUS_EVENTS: Record<UpdateOrderStatusInput['status'], OrderEventType> = 
 const buildDriverIndexSortKey = (order: Order): string =>
   `STATUS#${order.status}#CREATED#${order.createdAt}#ORDER#${order.orderId}`;
 
-const buildOrderIndexPartitionKey = (status: OrderStatus): string =>
-  `ORDER_STATUS#${status}`;
+const buildOrderIndexPartitionKey = (status: OrderStatus): string => `ORDER_STATUS#${status}`;
 
 const buildOrderIndexSortKey = (order: Order): string =>
   `CREATED#${order.createdAt}#ORDER#${order.orderId}`;
 
 const isOrderStatus = (value: unknown): value is OrderStatus =>
-  typeof value === 'string' &&
-  ORDER_STATUSES.some((status) => status === value);
+  typeof value === 'string' && ORDER_STATUSES.some((status) => status === value);
 
 /** Application logic for creating orders and enforcing status transitions. */
 export class OrderService {
@@ -120,43 +115,91 @@ export class OrderService {
 
     try {
       const transactionItems = [
-        { Put: { TableName: this.tableName, Item: item, ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)' } },
-        { Put: { TableName: this.tableName, Item: createOrderEventItem({ orderId: order.orderId, type: 'ORDER_CREATED', occurredAt: order.createdAt, actorId, metadata: {} }) } },
-        { Put: { TableName: this.tableName, Item: {
-          PK: `ORDER#${order.orderId}`,
-          SK: 'TRACKING#TOKEN',
-          orderId: order.orderId,
-          trackingToken,
-          tokenHash,
-          expiresAt,
-        }, ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)' } },
-        { Put: { TableName: this.tableName, Item: {
-          PK: `TRACKING#${tokenHash}`,
-          SK: 'TOKEN',
-          orderId: order.orderId,
-          expiresAt,
-        }, ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)' } },
-        ...(order.driverId ? [
-          { Update: {
+        {
+          Put: {
             TableName: this.tableName,
-            Key: { PK: `DRIVER#${order.driverId}`, SK: 'PROFILE' },
-            UpdateExpression: 'SET #status = :onDelivery, updatedAt = :updatedAt, GSI2PK = :gsi2pk, GSI2SK = :gsi2sk',
-            ConditionExpression: '#status = :available OR #status = :onDelivery',
-            ExpressionAttributeNames: { '#status': 'status' },
-            ExpressionAttributeValues: {
-              ':available': 'AVAILABLE',
-              ':onDelivery': 'ON_DELIVERY',
-              ':updatedAt': order.createdAt,
-              ':gsi2pk': 'DRIVER_STATUS#ON_DELIVERY',
-              ':gsi2sk': `UPDATED#${order.createdAt}#DRIVER#${order.driverId}`,
+            Item: item,
+            ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+          },
+        },
+        {
+          Put: {
+            TableName: this.tableName,
+            Item: createOrderEventItem({
+              orderId: order.orderId,
+              type: 'ORDER_CREATED',
+              occurredAt: order.createdAt,
+              actorId,
+              metadata: {},
+            }),
+          },
+        },
+        {
+          Put: {
+            TableName: this.tableName,
+            Item: {
+              PK: `ORDER#${order.orderId}`,
+              SK: 'TRACKING#TOKEN',
+              orderId: order.orderId,
+              trackingToken,
+              tokenHash,
+              expiresAt,
             },
-          } },
-          { Put: { TableName: this.tableName, Item: createOrderEventItem({ orderId: order.orderId, type: 'DRIVER_ASSIGNED', occurredAt: order.createdAt, actorId, metadata: { driverId: order.driverId } }) } },
-        ] : []),
+            ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+          },
+        },
+        {
+          Put: {
+            TableName: this.tableName,
+            Item: {
+              PK: `TRACKING#${tokenHash}`,
+              SK: 'TOKEN',
+              orderId: order.orderId,
+              expiresAt,
+            },
+            ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+          },
+        },
+        ...(order.driverId
+          ? [
+              {
+                Update: {
+                  TableName: this.tableName,
+                  Key: { PK: `DRIVER#${order.driverId}`, SK: 'PROFILE' },
+                  UpdateExpression:
+                    'SET #status = :onDelivery, updatedAt = :updatedAt, GSI2PK = :gsi2pk, GSI2SK = :gsi2sk',
+                  ConditionExpression: '#status = :available OR #status = :onDelivery',
+                  ExpressionAttributeNames: { '#status': 'status' },
+                  ExpressionAttributeValues: {
+                    ':available': 'AVAILABLE',
+                    ':onDelivery': 'ON_DELIVERY',
+                    ':updatedAt': order.createdAt,
+                    ':gsi2pk': 'DRIVER_STATUS#ON_DELIVERY',
+                    ':gsi2sk': `UPDATED#${order.createdAt}#DRIVER#${order.driverId}`,
+                  },
+                },
+              },
+              {
+                Put: {
+                  TableName: this.tableName,
+                  Item: createOrderEventItem({
+                    orderId: order.orderId,
+                    type: 'DRIVER_ASSIGNED',
+                    occurredAt: order.createdAt,
+                    actorId,
+                    metadata: { driverId: order.driverId },
+                  }),
+                },
+              },
+            ]
+          : []),
       ];
       await this.database.send(new TransactWriteCommand({ TransactItems: transactionItems }));
     } catch (error: unknown) {
-      if (error instanceof ConditionalCheckFailedException || error instanceof TransactionCanceledException) {
+      if (
+        error instanceof ConditionalCheckFailedException ||
+        error instanceof TransactionCanceledException
+      ) {
         throw new AppError(409, 'Order already exists', 'ORDER_ALREADY_EXISTS');
       }
 
@@ -169,11 +212,7 @@ export class OrderService {
   /** Admin-only retrieval; the capability token is never part of an Order DTO. */
   public async getTrackingLink(orderId: string): Promise<TrackingLink> {
     if (!this.trackingBaseUrl) {
-      throw new AppError(
-        503,
-        'Customer tracking URL is not configured',
-        'TRACKING_NOT_CONFIGURED',
-      );
+      throw new AppError(503, 'Customer tracking URL is not configured', 'TRACKING_NOT_CONFIGURED');
     }
     await this.getOrder(orderId);
     const record = await this.ensureTrackingToken(orderId);
@@ -186,11 +225,13 @@ export class OrderService {
   private async ensureTrackingToken(
     orderId: string,
   ): Promise<{ token: string; expiresAt: number }> {
-    const result = await this.database.send(new GetCommand({
-      TableName: this.tableName,
-      Key: { PK: `ORDER#${orderId}`, SK: 'TRACKING#TOKEN' },
-      ConsistentRead: true,
-    }));
+    const result = await this.database.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: { PK: `ORDER#${orderId}`, SK: 'TRACKING#TOKEN' },
+        ConsistentRead: true,
+      }),
+    );
     const token = result.Item?.trackingToken;
     const expiresAt = result.Item?.expiresAt;
     if (
@@ -204,22 +245,37 @@ export class OrderService {
     const nextToken = generateTrackingToken();
     const nextHash = hashTrackingToken(nextToken);
     const nextExpiry = trackingExpiry();
-    await this.database.send(new TransactWriteCommand({ TransactItems: [
-      { Put: { TableName: this.tableName, Item: {
-        PK: `ORDER#${orderId}`,
-        SK: 'TRACKING#TOKEN',
-        orderId,
-        trackingToken: nextToken,
-        tokenHash: nextHash,
-        expiresAt: nextExpiry,
-      } } },
-      { Put: { TableName: this.tableName, Item: {
-        PK: `TRACKING#${nextHash}`,
-        SK: 'TOKEN',
-        orderId,
-        expiresAt: nextExpiry,
-      }, ConditionExpression: 'attribute_not_exists(PK)' } },
-    ] }));
+    await this.database.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          {
+            Put: {
+              TableName: this.tableName,
+              Item: {
+                PK: `ORDER#${orderId}`,
+                SK: 'TRACKING#TOKEN',
+                orderId,
+                trackingToken: nextToken,
+                tokenHash: nextHash,
+                expiresAt: nextExpiry,
+              },
+            },
+          },
+          {
+            Put: {
+              TableName: this.tableName,
+              Item: {
+                PK: `TRACKING#${nextHash}`,
+                SK: 'TOKEN',
+                orderId,
+                expiresAt: nextExpiry,
+              },
+              ConditionExpression: 'attribute_not_exists(PK)',
+            },
+          },
+        ],
+      }),
+    );
     return { token: nextToken, expiresAt: nextExpiry };
   }
 
@@ -241,7 +297,9 @@ export class OrderService {
     }
 
     if (
-      ['IN_PROGRESS', 'ARRIVED', 'DELIVERED', 'DELIVERY_FAILED', 'RETURNING', 'RETURNED'].includes(nextStatus) &&
+      ['IN_PROGRESS', 'ARRIVED', 'DELIVERED', 'DELIVERY_FAILED', 'RETURNING', 'RETURNED'].includes(
+        nextStatus,
+      ) &&
       !currentOrder.driverId
     ) {
       throw new AppError(
@@ -286,17 +344,16 @@ export class OrderService {
     const orderSet = [
       '#status = :nextStatus',
       'GSI2PK = :gsi2pk',
-      ...(currentOrder.driverId && nextStatus !== 'RESCHEDULED'
-        ? ['GSI1SK = :gsi1sk']
-        : []),
+      ...(currentOrder.driverId && nextStatus !== 'RESCHEDULED' ? ['GSI1SK = :gsi1sk'] : []),
       ...(nextStatus === 'DELIVERED' ? ['deliveredAt = :deliveredAt'] : []),
       ...(nextStatus === 'IN_PROGRESS' ? ['startedAt = :startedAt'] : []),
       ...(nextStatus === 'ARRIVED' ? ['arrivedAt = :arrivedAt'] : []),
       ...(isExceptionStatus(nextStatus) ? ['#exception = :exception'] : []),
     ];
-    const orderRemove = nextStatus === 'RESCHEDULED'
-      ? ' REMOVE driverId, routeId, stopSequence, plannedArrivalAt, GSI1PK, GSI1SK'
-      : '';
+    const orderRemove =
+      nextStatus === 'RESCHEDULED'
+        ? ' REMOVE driverId, routeId, stopSequence, plannedArrivalAt, GSI1PK, GSI1SK'
+        : '';
     const eventMetadata: Record<string, string> = {
       ...(currentOrder.driverId ? { driverId: currentOrder.driverId } : {}),
       ...(input.reason ? { reason: input.reason } : {}),
@@ -304,108 +361,136 @@ export class OrderService {
     };
     const transactionItems: NonNullable<TransactWriteCommandInput['TransactItems']> = [
       ...(nextStatus === 'DELIVERED'
-        ? [{ ConditionCheck: {
-            TableName: this.tableName,
-            Key: { PK: `ORDER#${orderId}`, SK: 'PROOF#POD' },
-            ConditionExpression: 'attribute_exists(PK)',
-          } }]
+        ? [
+            {
+              ConditionCheck: {
+                TableName: this.tableName,
+                Key: { PK: `ORDER#${orderId}`, SK: 'PROOF#POD' },
+                ConditionExpression: 'attribute_exists(PK)',
+              },
+            },
+          ]
         : []),
-      { Update: {
-        TableName: this.tableName,
-        Key: { PK: `ORDER#${orderId}`, SK: 'METADATA' },
-        UpdateExpression: `SET ${orderSet.join(', ')}${orderRemove}`,
-        ConditionExpression: '#status = :expectedStatus',
-        ExpressionAttributeNames: {
-          '#status': 'status',
-          ...(isExceptionStatus(nextStatus) ? { '#exception': 'exception' } : {}),
+      {
+        Update: {
+          TableName: this.tableName,
+          Key: { PK: `ORDER#${orderId}`, SK: 'METADATA' },
+          UpdateExpression: `SET ${orderSet.join(', ')}${orderRemove}`,
+          ConditionExpression: '#status = :expectedStatus',
+          ExpressionAttributeNames: {
+            '#status': 'status',
+            ...(isExceptionStatus(nextStatus) ? { '#exception': 'exception' } : {}),
+          },
+          ExpressionAttributeValues: {
+            ':nextStatus': nextStatus,
+            ':expectedStatus': currentOrder.status,
+            ':gsi2pk': buildOrderIndexPartitionKey(nextStatus),
+            ...(currentOrder.driverId && nextStatus !== 'RESCHEDULED'
+              ? { ':gsi1sk': buildDriverIndexSortKey(nextOrder) }
+              : {}),
+            ...(nextStatus === 'DELIVERED' ? { ':deliveredAt': updatedAt } : {}),
+            ...(nextStatus === 'IN_PROGRESS' ? { ':startedAt': updatedAt } : {}),
+            ...(nextStatus === 'ARRIVED' ? { ':arrivedAt': updatedAt } : {}),
+            ...(isExceptionStatus(nextStatus) ? { ':exception': nextOrder.exception } : {}),
+          },
         },
-        ExpressionAttributeValues: {
-          ':nextStatus': nextStatus,
-          ':expectedStatus': currentOrder.status,
-          ':gsi2pk': buildOrderIndexPartitionKey(nextStatus),
-          ...(currentOrder.driverId && nextStatus !== 'RESCHEDULED'
-            ? { ':gsi1sk': buildDriverIndexSortKey(nextOrder) }
-            : {}),
-          ...(nextStatus === 'DELIVERED' ? { ':deliveredAt': updatedAt } : {}),
-          ...(nextStatus === 'IN_PROGRESS' ? { ':startedAt': updatedAt } : {}),
-          ...(nextStatus === 'ARRIVED' ? { ':arrivedAt': updatedAt } : {}),
-          ...(isExceptionStatus(nextStatus) ? { ':exception': nextOrder.exception } : {}),
+      },
+      {
+        Put: {
+          TableName: this.tableName,
+          Item: createOrderEventItem({
+            orderId,
+            type: STATUS_EVENTS[nextStatus],
+            occurredAt: updatedAt,
+            actorId,
+            metadata: eventMetadata,
+          }),
         },
-      } },
-      { Put: {
-        TableName: this.tableName,
-        Item: createOrderEventItem({
-          orderId,
-          type: STATUS_EVENTS[nextStatus],
-          occurredAt: updatedAt,
-          actorId,
-          metadata: eventMetadata,
-        }),
-      } },
+      },
     ];
 
     if (currentOrder.routeId && currentOrder.stopSequence) {
-      transactionItems.push({ Update: {
-        TableName: this.tableName,
-        Key: {
-          PK: `ROUTE#${currentOrder.routeId}`,
-          SK: `STOP#${String(currentOrder.stopSequence).padStart(3, '0')}#ORDER#${orderId}`,
-        },
-        UpdateExpression: `SET #status = :nextStatus${nextStatus === 'ARRIVED' ? ', actualArrivalAt = :actualArrivalAt' : ''}`,
-        ConditionExpression: 'attribute_exists(PK)',
-        ExpressionAttributeNames: { '#status': 'status' },
-        ExpressionAttributeValues: { ':nextStatus': nextStatus, ...(nextStatus === 'ARRIVED' ? { ':actualArrivalAt': updatedAt } : {}) },
-      } });
-      if (nextStatus === 'IN_PROGRESS') {
-        transactionItems.push({ Update: {
+      transactionItems.push({
+        Update: {
           TableName: this.tableName,
-          Key: { PK: `ROUTE#${currentOrder.routeId}`, SK: 'METADATA' },
-          UpdateExpression: 'SET #status = :inProgress',
+          Key: {
+            PK: `ROUTE#${currentOrder.routeId}`,
+            SK: `STOP#${String(currentOrder.stopSequence).padStart(3, '0')}#ORDER#${orderId}`,
+          },
+          UpdateExpression: `SET #status = :nextStatus${nextStatus === 'ARRIVED' ? ', actualArrivalAt = :actualArrivalAt' : ''}`,
           ConditionExpression: 'attribute_exists(PK)',
           ExpressionAttributeNames: { '#status': 'status' },
-          ExpressionAttributeValues: { ':inProgress': 'IN_PROGRESS' },
-        } });
+          ExpressionAttributeValues: {
+            ':nextStatus': nextStatus,
+            ...(nextStatus === 'ARRIVED' ? { ':actualArrivalAt': updatedAt } : {}),
+          },
+        },
+      });
+      if (nextStatus === 'IN_PROGRESS') {
+        transactionItems.push({
+          Update: {
+            TableName: this.tableName,
+            Key: { PK: `ROUTE#${currentOrder.routeId}`, SK: 'METADATA' },
+            UpdateExpression: 'SET #status = :inProgress',
+            ConditionExpression: 'attribute_exists(PK)',
+            ExpressionAttributeNames: { '#status': 'status' },
+            ExpressionAttributeValues: { ':inProgress': 'IN_PROGRESS' },
+          },
+        });
       }
     }
 
     if (nextStatus === 'IN_PROGRESS') {
-      transactionItems.push({ Update: {
-        TableName: this.tableName,
-        Key: { PK: `DRIVER#${currentOrder.driverId}`, SK: 'PROFILE' },
-        UpdateExpression: 'SET #status = :onDelivery, updatedAt = :updatedAt, GSI2PK = :driverIndexPk, GSI2SK = :driverIndexSk, activeOrderId = :orderId',
-        ConditionExpression: 'attribute_exists(PK) AND (#status = :available OR #status = :onDelivery) AND (attribute_not_exists(activeOrderId) OR activeOrderId = :orderId)',
-        ExpressionAttributeNames: { '#status': 'status' },
-        ExpressionAttributeValues: {
-          ':available': 'AVAILABLE', ':onDelivery': 'ON_DELIVERY', ':updatedAt': updatedAt,
-          ':driverIndexPk': 'DRIVER_STATUS#ON_DELIVERY',
-          ':driverIndexSk': `UPDATED#${updatedAt}#DRIVER#${currentOrder.driverId}`,
-          ':orderId': orderId,
+      transactionItems.push({
+        Update: {
+          TableName: this.tableName,
+          Key: { PK: `DRIVER#${currentOrder.driverId}`, SK: 'PROFILE' },
+          UpdateExpression:
+            'SET #status = :onDelivery, updatedAt = :updatedAt, GSI2PK = :driverIndexPk, GSI2SK = :driverIndexSk, activeOrderId = :orderId',
+          ConditionExpression:
+            'attribute_exists(PK) AND (#status = :available OR #status = :onDelivery) AND (attribute_not_exists(activeOrderId) OR activeOrderId = :orderId)',
+          ExpressionAttributeNames: { '#status': 'status' },
+          ExpressionAttributeValues: {
+            ':available': 'AVAILABLE',
+            ':onDelivery': 'ON_DELIVERY',
+            ':updatedAt': updatedAt,
+            ':driverIndexPk': 'DRIVER_STATUS#ON_DELIVERY',
+            ':driverIndexSk': `UPDATED#${updatedAt}#DRIVER#${currentOrder.driverId}`,
+            ':orderId': orderId,
+          },
         },
-      } });
+      });
     }
 
     if (releasesDriver(nextStatus) && currentOrder.driverId) {
-      transactionItems.push({ Update: {
-        TableName: this.tableName,
-        Key: { PK: `DRIVER#${currentOrder.driverId}`, SK: 'PROFILE' },
-        UpdateExpression: `SET #status = :available, updatedAt = :updatedAt, GSI2PK = :driverIndexPk, GSI2SK = :driverIndexSk REMOVE activeOrderId${nextStatus === 'DELIVERED' ? ' ADD completedToday :one' : ''}`,
-        ConditionExpression: 'attribute_exists(PK) AND (attribute_not_exists(activeOrderId) OR activeOrderId = :orderId)',
-        ExpressionAttributeNames: { '#status': 'status' },
-        ExpressionAttributeValues: {
-          ':available': 'AVAILABLE', ':updatedAt': updatedAt,
-          ':driverIndexPk': 'DRIVER_STATUS#AVAILABLE',
-          ':driverIndexSk': `UPDATED#${updatedAt}#DRIVER#${currentOrder.driverId}`,
-          ':orderId': orderId,
-          ...(nextStatus === 'DELIVERED' ? { ':one': 1 } : {}),
+      transactionItems.push({
+        Update: {
+          TableName: this.tableName,
+          Key: { PK: `DRIVER#${currentOrder.driverId}`, SK: 'PROFILE' },
+          UpdateExpression: `SET #status = :available, updatedAt = :updatedAt, GSI2PK = :driverIndexPk, GSI2SK = :driverIndexSk REMOVE activeOrderId${nextStatus === 'DELIVERED' ? ' ADD completedToday :one' : ''}`,
+          ConditionExpression:
+            'attribute_exists(PK) AND (attribute_not_exists(activeOrderId) OR activeOrderId = :orderId)',
+          ExpressionAttributeNames: { '#status': 'status' },
+          ExpressionAttributeValues: {
+            ':available': 'AVAILABLE',
+            ':updatedAt': updatedAt,
+            ':driverIndexPk': 'DRIVER_STATUS#AVAILABLE',
+            ':driverIndexSk': `UPDATED#${updatedAt}#DRIVER#${currentOrder.driverId}`,
+            ':orderId': orderId,
+            ...(nextStatus === 'DELIVERED' ? { ':one': 1 } : {}),
+          },
         },
-      } });
+      });
     }
 
     try {
       await this.database.send(new TransactWriteCommand({ TransactItems: transactionItems }));
       return this.getOrder(orderId);
     } catch (error: unknown) {
-      if (error instanceof ConditionalCheckFailedException || error instanceof TransactionCanceledException) {
+      if (
+        error instanceof ConditionalCheckFailedException ||
+        error instanceof TransactionCanceledException
+      ) {
         throw new AppError(
           409,
           'Order status changed concurrently; reload and try again',
@@ -473,7 +558,14 @@ export class OrderService {
     }
     await this.assertVehicleCapacity(driverId, currentOrder);
 
-    const assignedOrder: Order = { ...currentOrder, driverId, status: 'ASSIGNED', exception: null, routeId: null, stopSequence: null };
+    const assignedOrder: Order = {
+      ...currentOrder,
+      driverId,
+      status: 'ASSIGNED',
+      exception: null,
+      routeId: null,
+      stopSequence: null,
+    };
     const updatedAt = new Date().toISOString();
 
     try {
@@ -522,7 +614,13 @@ export class OrderService {
             {
               Put: {
                 TableName: this.tableName,
-                Item: createOrderEventItem({ orderId, type: 'DRIVER_ASSIGNED', occurredAt: updatedAt, actorId, metadata: { driverId } }),
+                Item: createOrderEventItem({
+                  orderId,
+                  type: 'DRIVER_ASSIGNED',
+                  occurredAt: updatedAt,
+                  actorId,
+                  metadata: { driverId },
+                }),
               },
             },
           ],
@@ -544,23 +642,41 @@ export class OrderService {
 
   private async assertVehicleCapacity(driverId: string, nextOrder: Order): Promise<void> {
     const [driverResult, currentOrders] = await Promise.all([
-      this.database.send(new GetCommand({
-        TableName: this.tableName,
-        Key: { PK: `DRIVER#${driverId}`, SK: 'PROFILE' },
-        ConsistentRead: true,
-      })),
+      this.database.send(
+        new GetCommand({
+          TableName: this.tableName,
+          Key: { PK: `DRIVER#${driverId}`, SK: 'PROFILE' },
+          ConsistentRead: true,
+        }),
+      ),
       this.listOrders({ driverId, limit: 100 }),
     ]);
     if (!driverResult.Item) throw new AppError(404, 'Driver not found', 'DRIVER_NOT_FOUND');
-    const maxWeightKg = typeof driverResult.Item.maxWeightKg === 'number' ? driverResult.Item.maxWeightKg : 20;
-    const maxVolumeM3 = typeof driverResult.Item.maxVolumeM3 === 'number' ? driverResult.Item.maxVolumeM3 : 0.25;
-    const active = currentOrders.filter((order) => ['ASSIGNED', 'IN_PROGRESS', 'ARRIVED', 'RETURNING'].includes(order.status));
-    const weightKg = active.reduce((sum, order) => sum + order.packageWeightKg, nextOrder.packageWeightKg);
-    const volumeM3 = active.reduce((sum, order) => sum + order.packageVolumeM3, nextOrder.packageVolumeM3);
+    const maxWeightKg =
+      typeof driverResult.Item.maxWeightKg === 'number' ? driverResult.Item.maxWeightKg : 20;
+    const maxVolumeM3 =
+      typeof driverResult.Item.maxVolumeM3 === 'number' ? driverResult.Item.maxVolumeM3 : 0.25;
+    const active = currentOrders.filter((order) =>
+      ['ASSIGNED', 'IN_PROGRESS', 'ARRIVED', 'RETURNING'].includes(order.status),
+    );
+    const weightKg = active.reduce(
+      (sum, order) => sum + order.packageWeightKg,
+      nextOrder.packageWeightKg,
+    );
+    const volumeM3 = active.reduce(
+      (sum, order) => sum + order.packageVolumeM3,
+      nextOrder.packageVolumeM3,
+    );
     if (weightKg > maxWeightKg || volumeM3 > maxVolumeM3) {
-      throw new AppError(409, 'The assignment exceeds vehicle capacity', 'VEHICLE_CAPACITY_EXCEEDED', {
-        requested: { weightKg, volumeM3 }, capacity: { weightKg: maxWeightKg, volumeM3: maxVolumeM3 },
-      });
+      throw new AppError(
+        409,
+        'The assignment exceeds vehicle capacity',
+        'VEHICLE_CAPACITY_EXCEEDED',
+        {
+          requested: { weightKg, volumeM3 },
+          capacity: { weightKg: maxWeightKg, volumeM3: maxVolumeM3 },
+        },
+      );
     }
   }
 
@@ -670,15 +786,26 @@ export class OrderService {
       customerRescheduleRequest !== null &&
       (typeof customerRescheduleRequest !== 'object' ||
         Array.isArray(customerRescheduleRequest) ||
-        typeof (customerRescheduleRequest as Record<string, unknown>).requestedWindowStart !== 'string' ||
-        typeof (customerRescheduleRequest as Record<string, unknown>).requestedWindowEnd !== 'string' ||
+        typeof (customerRescheduleRequest as Record<string, unknown>).requestedWindowStart !==
+          'string' ||
+        typeof (customerRescheduleRequest as Record<string, unknown>).requestedWindowEnd !==
+          'string' ||
         typeof (customerRescheduleRequest as Record<string, unknown>).requestedAt !== 'string')
-    ) throw new Error('Stored order has invalid customer reschedule data');
+    )
+      throw new Error('Stored order has invalid customer reschedule data');
 
-    const nullableStringFields = ['timeWindowStart', 'timeWindowEnd', 'routeId', 'startedAt', 'arrivedAt', 'plannedArrivalAt'] as const;
+    const nullableStringFields = [
+      'timeWindowStart',
+      'timeWindowEnd',
+      'routeId',
+      'startedAt',
+      'arrivedAt',
+      'plannedArrivalAt',
+    ] as const;
     for (const property of nullableStringFields) {
       const value = item[property] ?? null;
-      if (value !== null && typeof value !== 'string') throw new Error(`Stored order has an invalid ${property}`);
+      if (value !== null && typeof value !== 'string')
+        throw new Error(`Stored order has an invalid ${property}`);
     }
     const numericDefaults = {
       packageWeightKg: 0,
@@ -692,7 +819,10 @@ export class OrderService {
       }
     }
     const stopSequence = item.stopSequence ?? null;
-    if (stopSequence !== null && (typeof stopSequence !== 'number' || !Number.isInteger(stopSequence) || stopSequence < 1)) {
+    if (
+      stopSequence !== null &&
+      (typeof stopSequence !== 'number' || !Number.isInteger(stopSequence) || stopSequence < 1)
+    ) {
       throw new Error('Stored order has an invalid stopSequence');
     }
 

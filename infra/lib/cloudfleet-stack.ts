@@ -1,14 +1,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import {
-  CfnOutput,
-  Duration,
-  RemovalPolicy,
-  Stack,
-  Tags,
-  type StackProps,
-} from 'aws-cdk-lib';
+import { CfnOutput, Duration, RemovalPolicy, Stack, Tags, type StackProps } from 'aws-cdk-lib';
 import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import { HttpJwtAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
 import {
@@ -47,19 +40,13 @@ const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(currentDirectory, '../..');
 
 export class CloudFleetStack extends Stack {
-  public constructor(
-    scope: Construct,
-    id: string,
-    props: CloudFleetStackProps,
-  ) {
+  public constructor(scope: Construct, id: string, props: CloudFleetStackProps) {
     super(scope, id, props);
 
     const { projectName, stage } = props;
     const prefix = `${projectName}-${stage}`;
     const isProduction = stage === 'prod';
-    const removalPolicy = isProduction
-      ? RemovalPolicy.RETAIN
-      : RemovalPolicy.DESTROY;
+    const removalPolicy = isProduction ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY;
     const localCorsAllowedOrigins = this.parseCorsOrigins();
     // AWS Academy/VocLabs supplies this role and prevents students from
     // creating project-specific IAM roles. Keep it immutable so CDK never
@@ -81,10 +68,7 @@ export class CloudFleetStack extends Stack {
       removalPolicy,
       isProduction,
     );
-    const frontendDistribution = this.createFrontendDistribution(
-      prefix,
-      frontendBucket,
-    );
+    const frontendDistribution = this.createFrontendDistribution(prefix, frontendBucket);
     const frontendUrl = `https://${frontendDistribution.distributionDomainName}`;
     const corsAllowedOrigins = [...localCorsAllowedOrigins, frontendUrl];
 
@@ -110,12 +94,7 @@ export class CloudFleetStack extends Stack {
       frontendUrl,
     );
     const realtime = this.createRealtimeApi(prefix, stage, table, labRole);
-    const analytics = this.createAnalyticsResources(
-      prefix,
-      table,
-      analyticsBucket,
-      labRole,
-    );
+    const analytics = this.createAnalyticsResources(prefix, table, analyticsBucket, labRole);
     const { listener, vpc, vpcLinkSecurityGroup } = this.createContainerService({
       prefix,
       table,
@@ -207,10 +186,7 @@ export class CloudFleetStack extends Stack {
     });
   }
 
-  private createOperationalTable(
-    prefix: string,
-    removalPolicy: RemovalPolicy,
-  ): dynamodb.Table {
+  private createOperationalTable(prefix: string, removalPolicy: RemovalPolicy): dynamodb.Table {
     const table = new dynamodb.Table(this, 'OperationalTable', {
       tableName: `${prefix}-operations`,
       partitionKey: { name: 'PK', type: dynamodb.AttributeType.STRING },
@@ -376,20 +352,16 @@ export class CloudFleetStack extends Stack {
       labRole,
     } = input;
     const frontendDist = path.join(projectRoot, 'frontend/dist');
-    const deployment = new s3deploy.BucketDeployment(
-      this,
-      'FrontendDeployment',
-      {
-        destinationBucket: frontendBucket,
-        sources: [s3deploy.Source.asset(frontendDist)],
-        // The local placeholder must never overwrite deployment-time settings.
-        exclude: ['runtime-config.js'],
-        prune: true,
-        distribution: frontendDistribution,
-        distributionPaths: ['/*'],
-        role: labRole,
-      },
-    );
+    const deployment = new s3deploy.BucketDeployment(this, 'FrontendDeployment', {
+      destinationBucket: frontendBucket,
+      sources: [s3deploy.Source.asset(frontendDist)],
+      // The local placeholder must never overwrite deployment-time settings.
+      exclude: ['runtime-config.js'],
+      prune: true,
+      distribution: frontendDistribution,
+      distributionPaths: ['/*'],
+      role: labRole,
+    });
 
     const runtimeConfiguration = this.toJsonString({
       VITE_API_BASE_URL: httpApi.apiEndpoint,
@@ -487,9 +459,7 @@ export class CloudFleetStack extends Stack {
       precedence: 2,
     });
 
-    const callbackUrls = corsAllowedOrigins.map(
-      (origin) => `${origin}/auth/callback`,
-    );
+    const callbackUrls = corsAllowedOrigins.map((origin) => `${origin}/auth/callback`);
     const logoutUrls = corsAllowedOrigins.map((origin) => `${origin}/`);
     const userPoolClient = userPool.addClient('WebClient', {
       userPoolClientName: `${prefix}-web`,
@@ -501,11 +471,7 @@ export class CloudFleetStack extends Stack {
       preventUserExistenceErrors: true,
       oAuth: {
         flows: { authorizationCodeGrant: true },
-        scopes: [
-          cognito.OAuthScope.OPENID,
-          cognito.OAuthScope.EMAIL,
-          cognito.OAuthScope.PROFILE,
-        ],
+        scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL, cognito.OAuthScope.PROFILE],
         callbackUrls,
         logoutUrls,
       },
@@ -550,25 +516,18 @@ export class CloudFleetStack extends Stack {
     trackingBaseUrl: string,
   ): lambdaNodejs.NodejsFunction {
     const functionName = `${prefix}-delivery-notification`;
-    const functionLogGroup = new logs.LogGroup(
-      this,
-      'DeliveryNotificationLogGroup',
-      {
-        logGroupName: `/aws/lambda/${functionName}`,
-        retention: logs.RetentionDays.ONE_WEEK,
-        removalPolicy: RemovalPolicy.DESTROY,
-      },
-    );
+    const functionLogGroup = new logs.LogGroup(this, 'DeliveryNotificationLogGroup', {
+      logGroupName: `/aws/lambda/${functionName}`,
+      retention: logs.RetentionDays.ONE_WEEK,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
     const notificationFunction = new lambdaNodejs.NodejsFunction(
       this,
       'DeliveryNotificationFunction',
       {
         functionName,
         description: 'Sends secure customer tracking links on delivery status changes.',
-        entry: path.join(
-          projectRoot,
-          'src/lambdas/delivery-notification/lambda-handler.ts',
-        ),
+        entry: path.join(projectRoot, 'src/lambdas/delivery-notification/lambda-handler.ts'),
         handler: 'handler',
         runtime: lambda.Runtime.NODEJS_22_X,
         architecture: lambda.Architecture.ARM_64,
@@ -618,49 +577,33 @@ export class CloudFleetStack extends Stack {
     publicUrl: string;
     managementEndpoint: string;
   } {
-    const handler = new lambdaNodejs.NodejsFunction(
-      this,
-      'RealtimeConnectionsFunction',
-      {
-        functionName: `${prefix}-realtime-connections`,
-        description: 'Consumes one-time tickets and tracks WebSocket connections.',
-        entry: path.join(
-          projectRoot,
-          'src/lambdas/realtime-connections/lambda-handler.ts',
-        ),
-        handler: 'handler',
-        runtime: lambda.Runtime.NODEJS_22_X,
-        architecture: lambda.Architecture.ARM_64,
-        memorySize: 256,
-        timeout: Duration.seconds(10),
-        role: labRole,
-        projectRoot,
-        environment: { DYNAMODB_TABLE_NAME: table.tableName },
-        bundling: { minify: true, sourceMap: true, target: 'node22' },
-      },
-    );
+    const handler = new lambdaNodejs.NodejsFunction(this, 'RealtimeConnectionsFunction', {
+      functionName: `${prefix}-realtime-connections`,
+      description: 'Consumes one-time tickets and tracks WebSocket connections.',
+      entry: path.join(projectRoot, 'src/lambdas/realtime-connections/lambda-handler.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      architecture: lambda.Architecture.ARM_64,
+      memorySize: 256,
+      timeout: Duration.seconds(10),
+      role: labRole,
+      projectRoot,
+      environment: { DYNAMODB_TABLE_NAME: table.tableName },
+      bundling: { minify: true, sourceMap: true, target: 'node22' },
+    });
     table.grantReadWriteData(handler);
 
     const api = new apigwv2.WebSocketApi(this, 'RealtimeWebSocketApi', {
       apiName: `${prefix}-realtime`,
       routeSelectionExpression: '$request.body.action',
       connectRouteOptions: {
-        integration: new WebSocketLambdaIntegration(
-          'RealtimeConnectIntegration',
-          handler,
-        ),
+        integration: new WebSocketLambdaIntegration('RealtimeConnectIntegration', handler),
       },
       disconnectRouteOptions: {
-        integration: new WebSocketLambdaIntegration(
-          'RealtimeDisconnectIntegration',
-          handler,
-        ),
+        integration: new WebSocketLambdaIntegration('RealtimeDisconnectIntegration', handler),
       },
       defaultRouteOptions: {
-        integration: new WebSocketLambdaIntegration(
-          'RealtimeDefaultIntegration',
-          handler,
-        ),
+        integration: new WebSocketLambdaIntegration('RealtimeDefaultIntegration', handler),
       },
     });
     new apigwv2.WebSocketStage(this, 'RealtimeWebSocketStage', {
@@ -691,9 +634,7 @@ export class CloudFleetStack extends Stack {
     new s3deploy.BucketDeployment(this, 'AnalyticsJobDeployment', {
       destinationBucket: analyticsBucket,
       destinationKeyPrefix: 'emr/jobs',
-      sources: [
-        s3deploy.Source.asset(path.join(projectRoot, 'analytics/emr/jobs')),
-      ],
+      sources: [s3deploy.Source.asset(path.join(projectRoot, 'analytics/emr/jobs'))],
       prune: false,
       role: labRole,
     });
@@ -702,61 +643,46 @@ export class CloudFleetStack extends Stack {
     // instead of the EMR cluster service role / EC2 instance profile pair.
     const jobRole = labRole;
 
-    const application = new emrserverless.CfnApplication(
-      this,
-      'AnalyticsApplication',
-      {
-        name: `${prefix}-delivery-analytics`,
-        type: 'SPARK',
-        releaseLabel: 'emr-7.13.0',
-        autoStartConfiguration: { enabled: true },
-        autoStopConfiguration: { enabled: true, idleTimeoutMinutes: 15 },
-      },
-    );
+    const application = new emrserverless.CfnApplication(this, 'AnalyticsApplication', {
+      name: `${prefix}-delivery-analytics`,
+      type: 'SPARK',
+      releaseLabel: 'emr-7.13.0',
+      autoStartConfiguration: { enabled: true },
+      autoStopConfiguration: { enabled: true, idleTimeoutMinutes: 15 },
+    });
     const entryPoint = `s3://${analyticsBucket.bucketName}/emr/jobs/delivery_performance.py`;
 
     const workflowFunctionName = `${prefix}-analytics-workflow`;
-    const workflowFunctionLogGroup = new logs.LogGroup(
-      this,
-      'AnalyticsWorkflowFunctionLogGroup',
-      {
-        logGroupName: `/aws/lambda/${workflowFunctionName}`,
-        retention: logs.RetentionDays.ONE_WEEK,
-        removalPolicy: RemovalPolicy.DESTROY,
+    const workflowFunctionLogGroup = new logs.LogGroup(this, 'AnalyticsWorkflowFunctionLogGroup', {
+      logGroupName: `/aws/lambda/${workflowFunctionName}`,
+      retention: logs.RetentionDays.ONE_WEEK,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+    const workflowFunction = new lambdaNodejs.NodejsFunction(this, 'AnalyticsWorkflowFunction', {
+      functionName: workflowFunctionName,
+      description: 'Exports DynamoDB and controls the CloudFleet EMR analytics job.',
+      entry: path.join(projectRoot, 'src/lambdas/analytics-workflow/lambda-handler.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      architecture: lambda.Architecture.ARM_64,
+      memorySize: 256,
+      timeout: Duration.seconds(30),
+      logGroup: workflowFunctionLogGroup,
+      role: labRole,
+      projectRoot,
+      environment: {
+        TABLE_ARN: table.tableArn,
+        ANALYTICS_BUCKET: analyticsBucket.bucketName,
+        EMR_APPLICATION_ID: application.attrApplicationId,
+        EMR_JOB_ROLE_ARN: jobRole.roleArn,
+        EMR_ENTRY_POINT: entryPoint,
       },
-    );
-    const workflowFunction = new lambdaNodejs.NodejsFunction(
-      this,
-      'AnalyticsWorkflowFunction',
-      {
-        functionName: workflowFunctionName,
-        description: 'Exports DynamoDB and controls the CloudFleet EMR analytics job.',
-        entry: path.join(
-          projectRoot,
-          'src/lambdas/analytics-workflow/lambda-handler.ts',
-        ),
-        handler: 'handler',
-        runtime: lambda.Runtime.NODEJS_22_X,
-        architecture: lambda.Architecture.ARM_64,
-        memorySize: 256,
-        timeout: Duration.seconds(30),
-        logGroup: workflowFunctionLogGroup,
-        role: labRole,
-        projectRoot,
-        environment: {
-          TABLE_ARN: table.tableArn,
-          ANALYTICS_BUCKET: analyticsBucket.bucketName,
-          EMR_APPLICATION_ID: application.attrApplicationId,
-          EMR_JOB_ROLE_ARN: jobRole.roleArn,
-          EMR_ENTRY_POINT: entryPoint,
-        },
-        bundling: {
-          minify: true,
-          sourceMap: true,
-          target: 'node22',
-        },
+      bundling: {
+        minify: true,
+        sourceMap: true,
+        target: 'node22',
       },
-    );
+    });
 
     // LabRole is immutable in this stack. Its preconfigured policy must allow
     // DynamoDB export, S3 analytics access, EMR Serverless job control, and
@@ -830,32 +756,24 @@ export class CloudFleetStack extends Stack {
     checkExport.next(exportStatus);
     startExport.next(waitForExport);
 
-    const workflowLogGroup = new logs.LogGroup(
-      this,
-      'AnalyticsStateMachineLogGroup',
-      {
-        logGroupName: `/aws/vendedlogs/states/${prefix}-analytics-refresh`,
-        retention: logs.RetentionDays.ONE_WEEK,
-        removalPolicy: RemovalPolicy.DESTROY,
+    const workflowLogGroup = new logs.LogGroup(this, 'AnalyticsStateMachineLogGroup', {
+      logGroupName: `/aws/vendedlogs/states/${prefix}-analytics-refresh`,
+      retention: logs.RetentionDays.ONE_WEEK,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+    const stateMachine = new sfn.StateMachine(this, 'AnalyticsStateMachine', {
+      stateMachineName: `${prefix}-analytics-refresh`,
+      stateMachineType: sfn.StateMachineType.STANDARD,
+      definitionBody: sfn.DefinitionBody.fromChainable(startExport),
+      timeout: Duration.hours(2),
+      tracingEnabled: true,
+      logs: {
+        destination: workflowLogGroup,
+        level: sfn.LogLevel.ALL,
+        includeExecutionData: true,
       },
-    );
-    const stateMachine = new sfn.StateMachine(
-      this,
-      'AnalyticsStateMachine',
-      {
-        stateMachineName: `${prefix}-analytics-refresh`,
-        stateMachineType: sfn.StateMachineType.STANDARD,
-        definitionBody: sfn.DefinitionBody.fromChainable(startExport),
-        timeout: Duration.hours(2),
-        tracingEnabled: true,
-        logs: {
-          destination: workflowLogGroup,
-          level: sfn.LogLevel.ALL,
-          includeExecutionData: true,
-        },
-        role: labRole,
-      },
-    );
+      role: labRole,
+    });
 
     return { application, jobRole, entryPoint, stateMachine };
   }
@@ -922,24 +840,16 @@ export class CloudFleetStack extends Stack {
       description: 'Allows backend traffic only from the internal ALB.',
       allowAllOutbound: true,
     });
-    const loadBalancerSecurityGroup = new ec2.SecurityGroup(
-      this,
-      'LoadBalancerSecurityGroup',
-      {
-        vpc,
-        description: 'Allows API Gateway VPC Link traffic to the internal ALB.',
-        allowAllOutbound: true,
-      },
-    );
-    const vpcLinkSecurityGroup = new ec2.SecurityGroup(
-      this,
-      'VpcLinkSecurityGroup',
-      {
-        vpc,
-        description: 'API Gateway VPC Link network interfaces.',
-        allowAllOutbound: true,
-      },
-    );
+    const loadBalancerSecurityGroup = new ec2.SecurityGroup(this, 'LoadBalancerSecurityGroup', {
+      vpc,
+      description: 'Allows API Gateway VPC Link traffic to the internal ALB.',
+      allowAllOutbound: true,
+    });
+    const vpcLinkSecurityGroup = new ec2.SecurityGroup(this, 'VpcLinkSecurityGroup', {
+      vpc,
+      description: 'API Gateway VPC Link network interfaces.',
+      allowAllOutbound: true,
+    });
 
     loadBalancerSecurityGroup.addIngressRule(
       vpcLinkSecurityGroup,
@@ -952,21 +862,17 @@ export class CloudFleetStack extends Stack {
       'Node.js API from ALB',
     );
 
-    const taskDefinition = new ecs.FargateTaskDefinition(
-      this,
-      'ApiTaskDefinition',
-      {
-        family: `${prefix}-api`,
-        cpu: 512,
-        memoryLimitMiB: 1024,
-        taskRole: labRole,
-        executionRole: labRole,
-        runtimePlatform: {
-          cpuArchitecture: ecs.CpuArchitecture.X86_64,
-          operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
-        },
+    const taskDefinition = new ecs.FargateTaskDefinition(this, 'ApiTaskDefinition', {
+      family: `${prefix}-api`,
+      cpu: 512,
+      memoryLimitMiB: 1024,
+      taskRole: labRole,
+      executionRole: labRole,
+      runtimePlatform: {
+        cpuArchitecture: ecs.CpuArchitecture.X86_64,
+        operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
       },
-    );
+    });
     const container = taskDefinition.addContainer('ApiContainer', {
       containerName: 'api',
       image: ecs.ContainerImage.fromAsset(projectRoot, {
@@ -993,7 +899,8 @@ export class CloudFleetStack extends Stack {
         COGNITO_USER_POOL_ID: userPool.userPoolId,
         COGNITO_CLIENT_ID: userPoolClient.userPoolClientId,
         ROUTING_PROVIDER: process.env.CLOUDFLEET_ROUTING_PROVIDER?.trim() || 'straight-line',
-        ROUTING_BASE_URL: process.env.CLOUDFLEET_ROUTING_BASE_URL?.trim() || 'https://router.project-osrm.org',
+        ROUTING_BASE_URL:
+          process.env.CLOUDFLEET_ROUTING_BASE_URL?.trim() || 'https://router.project-osrm.org',
         ROUTING_ORIGIN_LAT: process.env.CLOUDFLEET_ROUTING_ORIGIN_LAT?.trim() || '10.7769',
         ROUTING_ORIGIN_LNG: process.env.CLOUDFLEET_ROUTING_ORIGIN_LNG?.trim() || '106.7009',
         OBSERVABILITY_ENVIRONMENT: prefix,
@@ -1007,7 +914,7 @@ export class CloudFleetStack extends Stack {
       healthCheck: {
         command: [
           'CMD-SHELL',
-          "node -e \"fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))\"",
+          'node -e "fetch(\'http://127.0.0.1:3000/health\').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"',
         ],
         interval: Duration.seconds(30),
         timeout: Duration.seconds(5),
@@ -1052,17 +959,13 @@ export class CloudFleetStack extends Stack {
       scaleOutCooldown: Duration.seconds(60),
     });
 
-    const loadBalancer = new elbv2.ApplicationLoadBalancer(
-      this,
-      'InternalLoadBalancer',
-      {
-        loadBalancerName: `${prefix}-internal`,
-        vpc,
-        internetFacing: false,
-        vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
-        securityGroup: loadBalancerSecurityGroup,
-      },
-    );
+    const loadBalancer = new elbv2.ApplicationLoadBalancer(this, 'InternalLoadBalancer', {
+      loadBalancerName: `${prefix}-internal`,
+      vpc,
+      internetFacing: false,
+      vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
+      securityGroup: loadBalancerSecurityGroup,
+    });
     const listener = loadBalancer.addListener('HttpListener', {
       port: 80,
       protocol: elbv2.ApplicationProtocol.HTTP,
@@ -1182,23 +1085,25 @@ export class CloudFleetStack extends Stack {
       statistic: string,
       dimensionNames: string,
       label: string,
-    ): cloudwatch.MathExpression => new cloudwatch.MathExpression({
-      expression: `SEARCH('{CloudFleet/Observability,${dimensionNames}} MetricName="${metricName}" Environment="${prefix}"', '${statistic}', 300)`,
-      label,
-      period: Duration.minutes(5),
-    });
+    ): cloudwatch.MathExpression =>
+      new cloudwatch.MathExpression({
+        expression: `SEARCH('{CloudFleet/Observability,${dimensionNames}} MetricName="${metricName}" Environment="${prefix}"', '${statistic}', 300)`,
+        label,
+        period: Duration.minutes(5),
+      });
     const graph = (
       title: string,
       metrics: cloudwatch.IMetric[],
       width = 12,
-    ): cloudwatch.GraphWidget => new cloudwatch.GraphWidget({
-      title,
-      left: metrics,
-      width,
-      height: 6,
-      leftYAxis: { min: 0 },
-      view: cloudwatch.GraphWidgetView.TIME_SERIES,
-    });
+    ): cloudwatch.GraphWidget =>
+      new cloudwatch.GraphWidget({
+        title,
+        left: metrics,
+        width,
+        height: 6,
+        leftYAxis: { min: 0 },
+        view: cloudwatch.GraphWidgetView.TIME_SERIES,
+      });
 
     const dashboard = new cloudwatch.Dashboard(this, 'ObservabilityDashboard', {
       dashboardName: `${prefix}-performance`,
@@ -1214,18 +1119,58 @@ export class CloudFleetStack extends Stack {
         search('HttpErrorRate', 'Average', 'Service,Environment,Method,Route', 'error rate %'),
       ]),
       graph('DynamoDB latency', [
-        search('DynamoDBRequestDuration', 'p95', 'Service,Environment,Dependency,Operation', 'p95 DynamoDB'),
+        search(
+          'DynamoDBRequestDuration',
+          'p95',
+          'Service,Environment,Dependency,Operation',
+          'p95 DynamoDB',
+        ),
       ]),
       graph('DynamoDB consumed capacity', [
-        search('DynamoDBConsumedCapacity', 'Sum', 'Service,Environment,Dependency,Operation', 'capacity units'),
-        search('DynamoDBScannedItemCount', 'Sum', 'Service,Environment,Dependency,Operation', 'scanned items'),
-        search('DynamoDBReturnedItemCount', 'Sum', 'Service,Environment,Dependency,Operation', 'returned items'),
+        search(
+          'DynamoDBConsumedCapacity',
+          'Sum',
+          'Service,Environment,Dependency,Operation',
+          'capacity units',
+        ),
+        search(
+          'DynamoDBScannedItemCount',
+          'Sum',
+          'Service,Environment,Dependency,Operation',
+          'scanned items',
+        ),
+        search(
+          'DynamoDBReturnedItemCount',
+          'Sum',
+          'Service,Environment,Dependency,Operation',
+          'returned items',
+        ),
       ]),
       graph('Routing, geocoding and optimization latency', [
-        search('RoutingProviderDuration', 'p95', 'Service,Environment,Provider,Operation,Outcome', 'OSRM p95'),
-        search('GeocodingDuration', 'p95', 'Service,Environment,Provider,Cache,Outcome', 'geocoding p95'),
-        search('RouteOptimizationDuration', 'p95', 'Service,Environment,Mode,StopBucket', 'optimization p95'),
-        search('RoutePlanningDuration', 'p95', 'Service,Environment,Provider,StopBucket', 'route plan p95'),
+        search(
+          'RoutingProviderDuration',
+          'p95',
+          'Service,Environment,Provider,Operation,Outcome',
+          'OSRM p95',
+        ),
+        search(
+          'GeocodingDuration',
+          'p95',
+          'Service,Environment,Provider,Cache,Outcome',
+          'geocoding p95',
+        ),
+        search(
+          'RouteOptimizationDuration',
+          'p95',
+          'Service,Environment,Mode,StopBucket',
+          'optimization p95',
+        ),
+        search(
+          'RoutePlanningDuration',
+          'p95',
+          'Service,Environment,Provider,StopBucket',
+          'route plan p95',
+        ),
       ]),
       graph('POD upload and registration', [
         search('PodUploadDuration', 'p95', 'Service,Environment,Outcome', 'browser → S3 p95'),
@@ -1255,9 +1200,7 @@ export class CloudFleetStack extends Stack {
   }
 
   private parseCorsOrigins(): string[] {
-    const configured = this.node.tryGetContext('corsAllowedOrigins') as
-      | string
-      | undefined;
+    const configured = this.node.tryGetContext('corsAllowedOrigins') as string | undefined;
     const origins = (configured ?? 'http://localhost:5173')
       .split(',')
       .map((origin) => origin.trim())

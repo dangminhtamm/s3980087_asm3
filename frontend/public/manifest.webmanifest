@@ -19,7 +19,15 @@
     }
   ],
   "shortcuts": [
-    { "name": "Current delivery", "url": "/driver", "icons": [{ "src": "/pwa-icon.svg", "sizes": "any", "type": "image/svg+xml" }] },
-    { "name": "Delivery history", "url": "/driver/history", "icons": [{ "src": "/pwa-icon.svg", "sizes": "any", "type": "image/svg+xml" }] }
+    {
+      "name": "Current delivery",
+      "url": "/driver",
+      "icons": [{ "src": "/pwa-icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Delivery history",
+      "url": "/driver/history",
+      "icons": [{ "src": "/pwa-icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
   ]
 }

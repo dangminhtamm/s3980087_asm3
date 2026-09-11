@@ -64,16 +64,26 @@ export const globalErrorHandler: ErrorRequestHandler = (
 
   if (error instanceof SyntaxError && 'body' in error) {
     response.status(400).json({
-      error: { code: 'INVALID_JSON', message: 'Request body is not valid JSON', requestId: request.requestId },
+      error: {
+        code: 'INVALID_JSON',
+        message: 'Request body is not valid JSON',
+        requestId: request.requestId,
+      },
     });
     return;
   }
 
-  const errorName =
-    error instanceof Error ? error.name : 'Unknown infrastructure error';
+  const errorName = error instanceof Error ? error.name : 'Unknown infrastructure error';
 
   if (AWS_CONFIGURATION_ERRORS.has(errorName)) {
-    console.error(JSON.stringify({ level: 'error', event: 'aws_configuration_error', requestId: request.requestId, error: errorName }));
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'aws_configuration_error',
+        requestId: request.requestId,
+        error: errorName,
+      }),
+    );
     response.status(503).json({
       error: {
         code: 'AWS_CONFIGURATION_ERROR',
@@ -85,7 +95,14 @@ export const globalErrorHandler: ErrorRequestHandler = (
   }
 
   if (AWS_TRANSIENT_ERRORS.has(errorName)) {
-    console.error(JSON.stringify({ level: 'error', event: 'aws_service_unavailable', requestId: request.requestId, error: errorName }));
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'aws_service_unavailable',
+        requestId: request.requestId,
+        error: errorName,
+      }),
+    );
     response.status(503).json({
       error: {
         code: 'AWS_SERVICE_UNAVAILABLE',
@@ -96,16 +113,18 @@ export const globalErrorHandler: ErrorRequestHandler = (
     return;
   }
 
-  console.error(JSON.stringify({
-    level: 'error',
-    event: 'unhandled_request_error',
-    requestId: request.requestId,
-    error: errorName,
-    message: error instanceof Error ? error.message : 'Unknown infrastructure error',
-    ...(process.env.NODE_ENV === 'development' && error instanceof Error
-      ? { stack: error.stack }
-      : {}),
-  }));
+  console.error(
+    JSON.stringify({
+      level: 'error',
+      event: 'unhandled_request_error',
+      requestId: request.requestId,
+      error: errorName,
+      message: error instanceof Error ? error.message : 'Unknown infrastructure error',
+      ...(process.env.NODE_ENV === 'development' && error instanceof Error
+        ? { stack: error.stack }
+        : {}),
+    }),
+  );
   response.status(500).json({
     error: {
       code: 'INTERNAL_SERVER_ERROR',

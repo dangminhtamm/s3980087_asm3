@@ -1,19 +1,9 @@
 import { Router } from 'express';
 
 import { dynamoDB, ORDERS_TABLE_NAME } from '../config/db.js';
-import {
-  ANALYTICS_BUCKET,
-  DELIVERY_PROOF_BUCKET,
-  s3Client,
-} from '../config/s3.js';
-import {
-  WEBSOCKET_PUBLIC_URL,
-  webSocketManagementClient,
-} from '../config/realtime.js';
-import {
-  ANALYTICS_STATE_MACHINE_ARN,
-  stepFunctionsClient,
-} from '../config/analytics.js';
+import { ANALYTICS_BUCKET, DELIVERY_PROOF_BUCKET, s3Client } from '../config/s3.js';
+import { WEBSOCKET_PUBLIC_URL, webSocketManagementClient } from '../config/realtime.js';
+import { ANALYTICS_STATE_MACHINE_ARN, stepFunctionsClient } from '../config/analytics.js';
 import { AnalyticsRunController } from '../controllers/analytics-run.controller.js';
 import { DeliveryProofController } from '../controllers/delivery-proof.controller.js';
 import { AnalyticsController } from '../controllers/analytics.controller.js';
@@ -26,10 +16,7 @@ import { GeocodingController } from '../controllers/geocoding.controller.js';
 import { OperationsController } from '../controllers/operations.controller.js';
 import { PushController } from '../controllers/push.controller.js';
 import { TelemetryController } from '../controllers/telemetry.controller.js';
-import {
-  authenticateRequest,
-  requireRole,
-} from '../middlewares/authentication.js';
+import { authenticateRequest, requireRole } from '../middlewares/authentication.js';
 import {
   requireDriverOwnerOrAdmin,
   requireOrderOwnerOrAdmin,
@@ -56,7 +43,10 @@ const driverService = new DriverService(dynamoDB, ORDERS_TABLE_NAME);
 const pushService = new PushService(dynamoDB, ORDERS_TABLE_NAME);
 const idempotencyService = new IdempotencyService(dynamoDB, ORDERS_TABLE_NAME);
 const orderController = new OrderController(orderService, orderEventService, pushService);
-const routeController = new RouteController(new RouteService(dynamoDB, ORDERS_TABLE_NAME, orderService, driverService), pushService);
+const routeController = new RouteController(
+  new RouteService(dynamoDB, ORDERS_TABLE_NAME, orderService, driverService),
+  pushService,
+);
 const pushController = new PushController(pushService);
 const telemetryController = new TelemetryController();
 const geocodingController = new GeocodingController(new GeocodingService());
@@ -64,12 +54,7 @@ const operationsController = new OperationsController(new OperationsService(orde
 const requireOrderAccess = requireOrderOwnerOrAdmin(orderService);
 const deliveryProofController = new DeliveryProofController(
   orderService,
-  new DeliveryProofService(
-    dynamoDB,
-    ORDERS_TABLE_NAME,
-    s3Client,
-    DELIVERY_PROOF_BUCKET,
-  ),
+  new DeliveryProofService(dynamoDB, ORDERS_TABLE_NAME, s3Client, DELIVERY_PROOF_BUCKET),
 );
 const analyticsController = new AnalyticsController(
   new AnalyticsService(s3Client, ANALYTICS_BUCKET),
@@ -86,20 +71,10 @@ const driverController = new DriverController(
   new DriverService(dynamoDB, ORDERS_TABLE_NAME, realtimeBroadcaster),
 );
 const trackingController = new TrackingController(
-  new TrackingService(
-    dynamoDB,
-    ORDERS_TABLE_NAME,
-    orderService,
-    orderEventService,
-    driverService,
-  ),
+  new TrackingService(dynamoDB, ORDERS_TABLE_NAME, orderService, orderEventService, driverService),
 );
 const realtimeController = new RealtimeController(
-  new RealtimeTicketService(
-    dynamoDB,
-    ORDERS_TABLE_NAME,
-    WEBSOCKET_PUBLIC_URL,
-  ),
+  new RealtimeTicketService(dynamoDB, ORDERS_TABLE_NAME, WEBSOCKET_PUBLIC_URL),
 );
 
 export const apiRouter = Router();
@@ -108,8 +83,16 @@ export const apiRouter = Router();
 // Payload fields are strict enums/numbers and contain no customer identifiers.
 apiRouter.post('/telemetry/frontend', telemetryController.collect);
 apiRouter.get('/tracking/:trackingToken', trackingController.get);
-apiRouter.post('/tracking/:trackingToken/feedback', enforceIdempotency(idempotencyService), trackingController.submitFeedback);
-apiRouter.post('/tracking/:trackingToken/reschedule', enforceIdempotency(idempotencyService), trackingController.requestReschedule);
+apiRouter.post(
+  '/tracking/:trackingToken/feedback',
+  enforceIdempotency(idempotencyService),
+  trackingController.submitFeedback,
+);
+apiRouter.post(
+  '/tracking/:trackingToken/reschedule',
+  enforceIdempotency(idempotencyService),
+  trackingController.requestReschedule,
+);
 
 apiRouter.use(authenticateRequest);
 apiRouter.use(enforceIdempotency(idempotencyService));
@@ -117,11 +100,7 @@ apiRouter.use(enforceIdempotency(idempotencyService));
 apiRouter.post('/orders', requireRole('ADMIN'), orderController.createOrder);
 apiRouter.post('/orders/import', requireRole('ADMIN'), orderController.importCsv);
 apiRouter.get('/orders/export.csv', requireRole('ADMIN'), orderController.exportCsv);
-apiRouter.get(
-  '/orders',
-  requireRole('ADMIN', 'DRIVER'),
-  orderController.listOrders,
-);
+apiRouter.get('/orders', requireRole('ADMIN', 'DRIVER'), orderController.listOrders);
 apiRouter.get(
   '/orders/:id',
   requireRole('ADMIN', 'DRIVER'),
@@ -134,16 +113,8 @@ apiRouter.get(
   requireOrderAccess,
   orderController.listEvents,
 );
-apiRouter.get(
-  '/orders/:id/tracking-link',
-  requireRole('ADMIN'),
-  orderController.getTrackingLink,
-);
-apiRouter.patch(
-  '/orders/:id/assign',
-  requireRole('ADMIN'),
-  orderController.assignDriver,
-);
+apiRouter.get('/orders/:id/tracking-link', requireRole('ADMIN'), orderController.getTrackingLink);
+apiRouter.patch('/orders/:id/assign', requireRole('ADMIN'), orderController.assignDriver);
 apiRouter.post('/geocoding/validate', requireRole('ADMIN'), geocodingController.validate);
 apiRouter.post('/routes', requireRole('ADMIN'), routeController.create);
 apiRouter.get('/routes', requireRole('ADMIN'), routeController.list);
@@ -157,11 +128,7 @@ apiRouter.patch(
   requireOrderAccess,
   orderController.updateStatus,
 );
-apiRouter.get(
-  '/upload-url',
-  requireRole('ADMIN'),
-  orderController.getUploadUrl,
-);
+apiRouter.get('/upload-url', requireRole('ADMIN'), orderController.getUploadUrl);
 apiRouter.get(
   '/orders/:id/proof/upload-url',
   requireRole('ADMIN', 'DRIVER'),
@@ -193,11 +160,7 @@ apiRouter.get(
   requireDriverOwnerOrAdmin,
   driverController.getDriver,
 );
-apiRouter.patch(
-  '/drivers/:id/status',
-  requireRole('ADMIN'),
-  driverController.updateStatus,
-);
+apiRouter.patch('/drivers/:id/status', requireRole('ADMIN'), driverController.updateStatus);
 apiRouter.patch(
   '/drivers/:id/location',
   requireRole('ADMIN', 'DRIVER'),
@@ -205,25 +168,19 @@ apiRouter.patch(
   driverController.updateLocation,
 );
 apiRouter.get('/push/public-key', requireRole('ADMIN', 'DRIVER'), pushController.getPublicKey);
-apiRouter.post('/drivers/:id/push-subscriptions', requireRole('ADMIN', 'DRIVER'), requireDriverOwnerOrAdmin, pushController.subscribe);
-apiRouter.delete('/drivers/:id/push-subscriptions', requireRole('ADMIN', 'DRIVER'), requireDriverOwnerOrAdmin, pushController.unsubscribe);
 apiRouter.post(
-  '/realtime/ticket',
-  requireRole('ADMIN'),
-  realtimeController.createTicket,
+  '/drivers/:id/push-subscriptions',
+  requireRole('ADMIN', 'DRIVER'),
+  requireDriverOwnerOrAdmin,
+  pushController.subscribe,
 );
-apiRouter.get(
-  '/analytics/overview',
-  requireRole('ADMIN'),
-  analyticsController.getOverview,
+apiRouter.delete(
+  '/drivers/:id/push-subscriptions',
+  requireRole('ADMIN', 'DRIVER'),
+  requireDriverOwnerOrAdmin,
+  pushController.unsubscribe,
 );
-apiRouter.post(
-  '/analytics/runs',
-  requireRole('ADMIN'),
-  analyticsRunController.start,
-);
-apiRouter.get(
-  '/analytics/runs/:runId',
-  requireRole('ADMIN'),
-  analyticsRunController.get,
-);
+apiRouter.post('/realtime/ticket', requireRole('ADMIN'), realtimeController.createTicket);
+apiRouter.get('/analytics/overview', requireRole('ADMIN'), analyticsController.getOverview);
+apiRouter.post('/analytics/runs', requireRole('ADMIN'), analyticsRunController.start);
+apiRouter.get('/analytics/runs/:runId', requireRole('ADMIN'), analyticsRunController.get);

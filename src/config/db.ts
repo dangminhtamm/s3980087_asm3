@@ -1,9 +1,6 @@
 import 'dotenv/config';
 
-import {
-  DynamoDBClient,
-  type DynamoDBClientConfig,
-} from '@aws-sdk/client-dynamodb';
+import { DynamoDBClient, type DynamoDBClientConfig } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { instrumentAwsClient } from '../observability/metrics.js';
 
@@ -50,6 +47,4 @@ export const dynamoDB = DynamoDBDocumentClient.from(dynamoDBClient, {
 
 instrumentAwsClient(dynamoDB.middlewareStack, 'DynamoDB');
 
-export const ORDERS_TABLE_NAME = getRequiredEnvironmentVariable(
-  'DYNAMODB_TABLE_NAME',
-);
+export const ORDERS_TABLE_NAME = getRequiredEnvironmentVariable('DYNAMODB_TABLE_NAME');

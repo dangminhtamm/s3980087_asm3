@@ -33,9 +33,13 @@ export const HomePage = () => (
 
       <section className="grid flex-1 items-center gap-14 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:py-24">
         <div>
-          <p className="text-[10px] font-bold tracking-[0.24em] text-neutral-500 uppercase">CloudFleet / Logistics OS</p>
+          <p className="text-[10px] font-bold tracking-[0.24em] text-neutral-500 uppercase">
+            CloudFleet / Logistics OS
+          </p>
           <h1 className="mt-7 max-w-3xl text-5xl font-semibold tracking-[-0.065em] sm:text-6xl lg:text-7xl">
-            Every delivery.<br />One clear view.
+            Every delivery.
+            <br />
+            One clear view.
           </h1>
           <p className="mt-7 max-w-xl text-sm leading-7 text-neutral-400">
             A real-time delivery operations platform for CloudFleet dispatchers and drivers.
@@ -53,11 +57,20 @@ export const HomePage = () => (
                 <AppIcon name={workspace.icon} className="size-5" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="text-[9px] font-bold tracking-[0.18em] text-neutral-600 uppercase">{workspace.meta}</span>
-                <span className="mt-1 block text-lg font-semibold tracking-tight">{workspace.label}</span>
-                <span className="mt-2 block text-xs leading-5 text-neutral-500">{workspace.description}</span>
+                <span className="text-[9px] font-bold tracking-[0.18em] text-neutral-600 uppercase">
+                  {workspace.meta}
+                </span>
+                <span className="mt-1 block text-lg font-semibold tracking-tight">
+                  {workspace.label}
+                </span>
+                <span className="mt-2 block text-xs leading-5 text-neutral-500">
+                  {workspace.description}
+                </span>
               </span>
-              <AppIcon name="arrow" className="size-4 text-neutral-600 transition group-hover:translate-x-1 group-hover:text-white" />
+              <AppIcon
+                name="arrow"
+                className="size-4 text-neutral-600 transition group-hover:translate-x-1 group-hover:text-white"
+              />
             </Link>
           ))}
         </div>

@@ -11,8 +11,7 @@ export const haversineDistanceKm = (from: MapCoordinate, to: MapCoordinate): num
   const longitudeDelta = toRadians(toLng - fromLng);
   const value =
     Math.sin(latitudeDelta / 2) ** 2 +
-    Math.cos(toRadians(fromLat)) * Math.cos(toRadians(toLat)) *
-    Math.sin(longitudeDelta / 2) ** 2;
+    Math.cos(toRadians(fromLat)) * Math.cos(toRadians(toLat)) * Math.sin(longitudeDelta / 2) ** 2;
   return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
 };
 

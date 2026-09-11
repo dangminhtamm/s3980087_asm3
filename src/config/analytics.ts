@@ -12,5 +12,4 @@ if (!region) {
 export const stepFunctionsClient = new SFNClient({ region });
 
 /** Empty in Docker Compose because EMR automation is an AWS-only workflow. */
-export const ANALYTICS_STATE_MACHINE_ARN =
-  process.env.ANALYTICS_STATE_MACHINE_ARN?.trim() || null;
+export const ANALYTICS_STATE_MACHINE_ARN = process.env.ANALYTICS_STATE_MACHINE_ARN?.trim() || null;

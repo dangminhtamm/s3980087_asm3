@@ -7,9 +7,8 @@ import type { OrderService } from '../services/order.service.js';
  * Admins may access every order. A DRIVER Cognito username must match the
  * driverId assigned to the requested order (for example username DRV-018).
  */
-export const requireOrderOwnerOrAdmin = (
-  orderService: OrderService,
-): RequestHandler =>
+export const requireOrderOwnerOrAdmin =
+  (orderService: OrderService): RequestHandler =>
   async (request, _response, next) => {
     try {
       const user = request.authenticatedUser;
@@ -47,11 +46,7 @@ export const requireOrderOwnerOrAdmin = (
   };
 
 /** Drivers can view only their own profile; admins can view every driver. */
-export const requireDriverOwnerOrAdmin: RequestHandler = (
-  request,
-  _response,
-  next,
-) => {
+export const requireDriverOwnerOrAdmin: RequestHandler = (request, _response, next) => {
   const user = request.authenticatedUser;
   if (!user) {
     next(new AppError(401, 'Authentication is required', 'AUTHENTICATION_REQUIRED'));
@@ -63,11 +58,5 @@ export const requireDriverOwnerOrAdmin: RequestHandler = (
     return;
   }
 
-  next(
-    new AppError(
-      403,
-      'Drivers may only access their own profile',
-      'DRIVER_ACCESS_DENIED',
-    ),
-  );
+  next(new AppError(403, 'Drivers may only access their own profile', 'DRIVER_ACCESS_DENIED'));
 };

@@ -13,9 +13,12 @@ import {
 export const createOrderSchema = z
   .object({
     customerName: z.string().trim().min(1).max(120),
-    customerPhone: z.string().trim().regex(/^\+[1-9]\d{7,14}$/, {
-      message: 'customerPhone must use E.164 format, for example +84901234567',
-    }),
+    customerPhone: z
+      .string()
+      .trim()
+      .regex(/^\+[1-9]\d{7,14}$/, {
+        message: 'customerPhone must use E.164 format, for example +84901234567',
+      }),
     dropoffAddress: z.string().trim().min(5).max(500),
     region: z.string().trim().min(1).max(120),
     lat: z.number().finite().min(-90).max(90),
@@ -29,8 +32,16 @@ export const createOrderSchema = z
   })
   .strict()
   .superRefine((value, context) => {
-    if (value.timeWindowStart && value.timeWindowEnd && value.timeWindowStart >= value.timeWindowEnd) {
-      context.addIssue({ code: 'custom', path: ['timeWindowEnd'], message: 'timeWindowEnd must be after timeWindowStart' });
+    if (
+      value.timeWindowStart &&
+      value.timeWindowEnd &&
+      value.timeWindowStart >= value.timeWindowEnd
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['timeWindowEnd'],
+        message: 'timeWindowEnd must be after timeWindowStart',
+      });
     }
   });
 
@@ -46,10 +57,7 @@ export const updateOrderStatusSchema = z
   })
   .strict()
   .superRefine((value, context) => {
-    if (
-      (value.status === 'DELIVERY_FAILED' || value.status === 'CANCELLED') &&
-      !value.reason
-    ) {
+    if ((value.status === 'DELIVERY_FAILED' || value.status === 'CANCELLED') && !value.reason) {
       context.addIssue({
         code: 'custom',
         path: ['reason'],
@@ -85,17 +93,25 @@ export const registerDeliveryProofSchema = z
     contentType: z.enum(ALLOWED_PROOF_CONTENT_TYPES),
     size: z.number().int().min(1).max(MAX_PROOF_FILE_SIZE_BYTES),
     recipientName: z.string().trim().min(1).max(120).optional(),
-    signatureDataUrl: z.string()
+    signatureDataUrl: z
+      .string()
       .max(200_000)
       .regex(/^data:image\/png;base64,[A-Za-z0-9+/=]+$/, 'signatureDataUrl must be a PNG data URL')
       .optional(),
-    barcode: z.string().trim().regex(/^[A-Za-z0-9._:/-]{3,128}$/).optional(),
+    barcode: z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z0-9._:/-]{3,128}$/)
+      .optional(),
     notes: z.string().trim().min(1).max(500).optional(),
-    gps: z.object({
-      lat: z.number().finite().min(-90).max(90),
-      lng: z.number().finite().min(-180).max(180),
-      accuracy: z.number().finite().min(0).max(100_000).nullable(),
-      recordedAt: z.iso.datetime({ offset: true }),
-    }).strict().optional(),
+    gps: z
+      .object({
+        lat: z.number().finite().min(-90).max(90),
+        lng: z.number().finite().min(-180).max(180),
+        accuracy: z.number().finite().min(0).max(100_000).nullable(),
+        recordedAt: z.iso.datetime({ offset: true }),
+      })
+      .strict()
+      .optional(),
   })
   .strict();

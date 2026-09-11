@@ -1,13 +1,6 @@
-import type {
-  APIGatewayProxyResultV2,
-  APIGatewayProxyWebsocketEventV2,
-} from 'aws-lambda';
+import type { APIGatewayProxyResultV2, APIGatewayProxyWebsocketEventV2 } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import {
-  DeleteCommand,
-  DynamoDBDocumentClient,
-  PutCommand,
-} from '@aws-sdk/lib-dynamodb';
+import { DeleteCommand, DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
 
 const tableName = process.env.DYNAMODB_TABLE_NAME;
 if (!tableName) throw new Error('DYNAMODB_TABLE_NAME is required');

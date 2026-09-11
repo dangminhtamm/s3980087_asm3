@@ -78,14 +78,40 @@ const buildProgress = (
     started: string | null;
     completed: boolean;
   }> = [
-    { id: 'EXPORT', label: 'Export DynamoDB snapshot', started: exportStarted, completed: Boolean(emrStarted) },
-    { id: 'EMR_START', label: 'Start EMR Serverless', started: emrStarted, completed: Boolean(sparkStarted) },
-    { id: 'SPARK', label: 'Run Spark aggregation', started: sparkStarted, completed: Boolean(published) },
-    { id: 'PUBLISH', label: 'Publish analytics snapshot', started: published, completed: status === 'SUCCEEDED' },
+    {
+      id: 'EXPORT',
+      label: 'Export DynamoDB snapshot',
+      started: exportStarted,
+      completed: Boolean(emrStarted),
+    },
+    {
+      id: 'EMR_START',
+      label: 'Start EMR Serverless',
+      started: emrStarted,
+      completed: Boolean(sparkStarted),
+    },
+    {
+      id: 'SPARK',
+      label: 'Run Spark aggregation',
+      started: sparkStarted,
+      completed: Boolean(published),
+    },
+    {
+      id: 'PUBLISH',
+      label: 'Publish analytics snapshot',
+      started: published,
+      completed: status === 'SUCCEEDED',
+    },
   ];
-  const activeIndex = Math.max(0, definitions.findIndex((step) => step.started && !step.completed));
+  const activeIndex = Math.max(
+    0,
+    definitions.findIndex((step) => step.started && !step.completed),
+  );
   const failedIndex = terminalFailure
-    ? Math.max(0, definitions.findIndex((step) => !step.completed))
+    ? Math.max(
+        0,
+        definitions.findIndex((step) => !step.completed),
+      )
     : -1;
   const steps: AnalyticsRunStep[] = definitions.map((step, index) => ({
     id: step.id,
@@ -100,14 +126,12 @@ const buildProgress = (
     timestamp: step.started,
   }));
   const completedCount = steps.filter((step) => step.status === 'COMPLETED').length;
-  const percent = status === 'SUCCEEDED'
-    ? 100
-    : Math.min(95, completedCount * 25 + (status === 'RUNNING' ? 10 : 0));
-  const currentIndex = status === 'SUCCEEDED'
-    ? steps.length - 1
-    : failedIndex >= 0
-      ? failedIndex
-      : activeIndex;
+  const percent =
+    status === 'SUCCEEDED'
+      ? 100
+      : Math.min(95, completedCount * 25 + (status === 'RUNNING' ? 10 : 0));
+  const currentIndex =
+    status === 'SUCCEEDED' ? steps.length - 1 : failedIndex >= 0 ? failedIndex : activeIndex;
   const current = steps[currentIndex] ?? steps[0]!;
 
   return { percent, currentStep: current.label, steps };
@@ -167,12 +191,14 @@ export class AnalyticsRunService {
       const executionArn = executionArnFor(stateMachineArn, runId);
       const [execution, history] = await Promise.all([
         this.workflows.send(new DescribeExecutionCommand({ executionArn })),
-        this.workflows.send(new GetExecutionHistoryCommand({
-          executionArn,
-          reverseOrder: true,
-          maxResults: 100,
-          includeExecutionData: false,
-        })),
+        this.workflows.send(
+          new GetExecutionHistoryCommand({
+            executionArn,
+            reverseOrder: true,
+            maxResults: 100,
+            includeExecutionData: false,
+          }),
+        ),
       ]);
 
       if (!execution.status || !execution.startDate) {
@@ -192,11 +218,7 @@ export class AnalyticsRunService {
         error instanceof ExecutionDoesNotExist ||
         (error instanceof Error && error.name === 'ExecutionDoesNotExist')
       ) {
-        throw new AppError(
-          404,
-          'Analytics run was not found',
-          'ANALYTICS_RUN_NOT_FOUND',
-        );
+        throw new AppError(404, 'Analytics run was not found', 'ANALYTICS_RUN_NOT_FOUND');
       }
       throw error;
     }

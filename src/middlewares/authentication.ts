@@ -1,11 +1,7 @@
 import type { RequestHandler } from 'express';
 import { CognitoJwtVerifier } from 'aws-jwt-verify';
 
-import {
-  USER_ROLES,
-  type AuthenticatedUser,
-  type UserRole,
-} from '../domain/entities/auth.js';
+import { USER_ROLES, type UserRole } from '../domain/entities/auth.js';
 import { AppError } from '../errors/app-error.js';
 
 const authMode = process.env.AUTH_MODE?.trim().toLowerCase() || 'disabled';
@@ -40,11 +36,7 @@ const parseBearerToken = (authorization: string | undefined): string => {
   const [scheme, token, ...extra] = authorization?.trim().split(/\s+/) ?? [];
 
   if (scheme !== 'Bearer' || !token || extra.length > 0) {
-    throw new AppError(
-      401,
-      'A valid Bearer access token is required',
-      'AUTHENTICATION_REQUIRED',
-    );
+    throw new AppError(401, 'A valid Bearer access token is required', 'AUTHENTICATION_REQUIRED');
   }
 
   return token;
@@ -54,11 +46,7 @@ const parseBearerToken = (authorization: string | undefined): string => {
  * Verifies Cognito access tokens inside ECS as defense in depth. API Gateway
  * performs the first verification; local/direct requests are protected here.
  */
-export const authenticateRequest: RequestHandler = async (
-  request,
-  _response,
-  next,
-) => {
+export const authenticateRequest: RequestHandler = async (request, _response, next) => {
   if (authMode === 'disabled') {
     request.authenticatedUser = {
       subject: 'local-development',
@@ -78,14 +66,11 @@ export const authenticateRequest: RequestHandler = async (
     const token = parseBearerToken(request.header('authorization'));
     const payload = await getVerifier().verify(token);
     const rawGroups = payload['cognito:groups'];
-    const roles = Array.isArray(rawGroups)
-      ? rawGroups.filter(isUserRole)
-      : [];
+    const roles = Array.isArray(rawGroups) ? rawGroups.filter(isUserRole) : [];
 
     request.authenticatedUser = {
       subject: payload.sub,
-      username:
-        typeof payload.username === 'string' ? payload.username : payload.sub,
+      username: typeof payload.username === 'string' ? payload.username : payload.sub,
       roles,
     };
     next();
@@ -99,24 +84,19 @@ export const authenticateRequest: RequestHandler = async (
   }
 };
 
-export const requireRole = (...allowedRoles: UserRole[]): RequestHandler =>
+export const requireRole =
+  (...allowedRoles: UserRole[]): RequestHandler =>
   (request, _response, next) => {
     const user = request.authenticatedUser;
 
     if (!user) {
-      next(
-        new AppError(401, 'Authentication is required', 'AUTHENTICATION_REQUIRED'),
-      );
+      next(new AppError(401, 'Authentication is required', 'AUTHENTICATION_REQUIRED'));
       return;
     }
 
     if (!user.roles.some((role) => allowedRoles.includes(role))) {
       next(
-        new AppError(
-          403,
-          'You do not have permission to perform this action',
-          'INSUFFICIENT_ROLE',
-        ),
+        new AppError(403, 'You do not have permission to perform this action', 'INSUFFICIENT_ROLE'),
       );
       return;
     }

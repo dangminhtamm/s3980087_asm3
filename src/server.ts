@@ -7,17 +7,10 @@ import { DescribeTableCommand } from '@aws-sdk/client-dynamodb';
 import { HeadBucketCommand } from '@aws-sdk/client-s3';
 
 import { dynamoDBClient, ORDERS_TABLE_NAME } from './config/db.js';
-import {
-  DELIVERY_PROOF_BUCKET,
-  s3Client,
-  s3PresignClient,
-} from './config/s3.js';
+import { DELIVERY_PROOF_BUCKET, s3Client, s3PresignClient } from './config/s3.js';
 import { webSocketManagementClient } from './config/realtime.js';
 import { AppError } from './errors/app-error.js';
-import {
-  globalErrorHandler,
-  notFoundHandler,
-} from './middlewares/error-handler.js';
+import { globalErrorHandler, notFoundHandler } from './middlewares/error-handler.js';
 import { apiRouter } from './routes/api.routes.js';
 import { requestContext } from './middlewares/request-context.js';
 
@@ -91,11 +84,13 @@ app.get('/ready', async (_request, response) => {
       dependencies,
     });
   } else {
-    console.error(JSON.stringify({
-      level: 'error',
-      event: 'readiness_failed',
-      dependencies,
-    }));
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'readiness_failed',
+        dependencies,
+      }),
+    );
     response.status(503).json({
       status: 'not_ready',
       service: 'cloudfleet-api',

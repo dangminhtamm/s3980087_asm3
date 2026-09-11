@@ -24,8 +24,7 @@ export const UPDATABLE_ORDER_STATUSES = [
   'RETURNED',
 ] as const;
 
-export type UpdatableOrderStatus =
-  (typeof UPDATABLE_ORDER_STATUSES)[number];
+export type UpdatableOrderStatus = (typeof UPDATABLE_ORDER_STATUSES)[number];
 
 export const ORDER_EXCEPTION_REASONS = [
   'CUSTOMER_UNAVAILABLE',

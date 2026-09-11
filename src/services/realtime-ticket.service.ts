@@ -22,11 +22,7 @@ export class RealtimeTicketService {
 
   public async issue(user: AuthenticatedUser): Promise<RealtimeTicket> {
     if (!this.publicWebSocketUrl) {
-      throw new AppError(
-        503,
-        'Realtime WebSocket is not configured',
-        'REALTIME_NOT_CONFIGURED',
-      );
+      throw new AppError(503, 'Realtime WebSocket is not configured', 'REALTIME_NOT_CONFIGURED');
     }
 
     const ticket = randomUUID();

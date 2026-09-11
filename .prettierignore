@@ -1,0 +1,12 @@
+coverage/
+dist/
+frontend/dist/
+infra/cdk.out/
+infra/dist/
+node_modules/
+frontend/node_modules/
+infra/node_modules/
+load/reports/*.json
+package-lock.json
+frontend/package-lock.json
+infra/package-lock.json

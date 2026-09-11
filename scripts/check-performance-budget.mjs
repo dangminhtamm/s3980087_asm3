@@ -1,6 +1,8 @@
 import { readFile } from 'node:fs/promises';
 
-const budget = JSON.parse(await readFile(new URL('../performance-budget.json', import.meta.url), 'utf8'));
+const budget = JSON.parse(
+  await readFile(new URL('../performance-budget.json', import.meta.url), 'utf8'),
+);
 const files = process.argv.slice(2);
 if (files.length === 0) throw new Error('Pass at least one k6 summary JSON file.');
 
@@ -10,7 +12,8 @@ for (const file of files) {
   const values = (metric) => report.metrics[metric]?.values ?? {};
   const assertMaximum = (label, actual, maximum) => {
     if (typeof actual !== 'number') failures.push(`${file}: ${label} is missing`);
-    else if (actual >= maximum) failures.push(`${file}: ${label} ${actual.toFixed(2)} >= ${maximum}`);
+    else if (actual >= maximum)
+      failures.push(`${file}: ${label} ${actual.toFixed(2)} >= ${maximum}`);
   };
   assertMaximum('flow error rate', report.summary.errorRate, budget.errorRate);
   assertMaximum('overall p95', report.summary.httpP95Ms, budget.httpP95Ms);

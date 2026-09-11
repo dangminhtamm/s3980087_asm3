@@ -48,10 +48,7 @@ const storageClient = new S3Client({
 const sleep = async (milliseconds: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
 
-const waitFor = async (
-  label: string,
-  check: () => Promise<unknown>,
-): Promise<void> => {
+const waitFor = async (label: string, check: () => Promise<unknown>): Promise<void> => {
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= 40; attempt += 1) {
@@ -117,10 +114,7 @@ const ensureTable = async (): Promise<void> => {
     }),
   );
 
-  await waitUntilTableExists(
-    { client: dynamoClient, maxWaitTime: 30 },
-    { TableName: tableName },
-  );
+  await waitUntilTableExists({ client: dynamoClient, maxWaitTime: 30 }, { TableName: tableName });
   console.info(`Created DynamoDB table ${tableName}`);
 };
 
@@ -170,8 +164,8 @@ const buildHourlyVolume = (
   seed: number,
 ): Array<{ hour: number; orderCount: number }> => {
   const weights = [
-    0.2, 0.1, 0.1, 0.1, 0.1, 0.2, 0.6, 1.2, 2.8, 4.8, 5.6, 5.1,
-    4.4, 4.7, 5.4, 6.2, 7.1, 6.8, 5.1, 3.4, 2.2, 1.3, 0.7, 0.4,
+    0.2, 0.1, 0.1, 0.1, 0.1, 0.2, 0.6, 1.2, 2.8, 4.8, 5.6, 5.1, 4.4, 4.7, 5.4, 6.2, 7.1, 6.8, 5.1,
+    3.4, 2.2, 1.3, 0.7, 0.4,
   ];
   const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
   const values = weights.map((weight) => Math.floor((orderCount * weight) / totalWeight));
@@ -238,13 +232,10 @@ const buildLocalAnalyticsSnapshot = () => {
       date: date.toISOString().slice(0, 10),
       totalOrders: regions.reduce((sum, region) => sum + region.orderCount, 0),
       deliveredOrders: regions.reduce((sum, region) => sum + region.deliveredOrders, 0),
-      totalDeliveryMinutes: Math.round(
-        regions.reduce((sum, region) => sum + region.totalDeliveryMinutes, 0) * 100,
-      ) / 100,
-      deliveryDurationCount: regions.reduce(
-        (sum, region) => sum + region.deliveryDurationCount,
-        0,
-      ),
+      totalDeliveryMinutes:
+        Math.round(regions.reduce((sum, region) => sum + region.totalDeliveryMinutes, 0) * 100) /
+        100,
+      deliveryDurationCount: regions.reduce((sum, region) => sum + region.deliveryDurationCount, 0),
       hourlyOrderVolume,
       regions,
     };
@@ -281,26 +272,31 @@ const createSeedEvent = (
 
 const ensureSeedActiveOrderLock = async (orderId: string, driverId: string): Promise<void> => {
   try {
-    await documentClient.send(new TransactWriteCommand({ TransactItems: [
-      {
-        ConditionCheck: {
-          TableName: tableName,
-          Key: { PK: `ORDER#${orderId}`, SK: 'METADATA' },
-          ConditionExpression: '#status = :inProgress',
-          ExpressionAttributeNames: { '#status': 'status' },
-          ExpressionAttributeValues: { ':inProgress': 'IN_PROGRESS' },
-        },
-      },
-      {
-        Update: {
-          TableName: tableName,
-          Key: { PK: `DRIVER#${driverId}`, SK: 'PROFILE' },
-          UpdateExpression: 'SET activeOrderId = if_not_exists(activeOrderId, :orderId)',
-          ConditionExpression: 'attribute_exists(PK) AND (attribute_not_exists(activeOrderId) OR activeOrderId = :orderId)',
-          ExpressionAttributeValues: { ':orderId': orderId },
-        },
-      },
-    ] }));
+    await documentClient.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          {
+            ConditionCheck: {
+              TableName: tableName,
+              Key: { PK: `ORDER#${orderId}`, SK: 'METADATA' },
+              ConditionExpression: '#status = :inProgress',
+              ExpressionAttributeNames: { '#status': 'status' },
+              ExpressionAttributeValues: { ':inProgress': 'IN_PROGRESS' },
+            },
+          },
+          {
+            Update: {
+              TableName: tableName,
+              Key: { PK: `DRIVER#${driverId}`, SK: 'PROFILE' },
+              UpdateExpression: 'SET activeOrderId = if_not_exists(activeOrderId, :orderId)',
+              ConditionExpression:
+                'attribute_exists(PK) AND (attribute_not_exists(activeOrderId) OR activeOrderId = :orderId)',
+              ExpressionAttributeValues: { ':orderId': orderId },
+            },
+          },
+        ],
+      }),
+    );
   } catch (error: unknown) {
     // Existing local data may have progressed past the seed snapshot or the
     // driver may already hold another valid lock. Never rewind that state.
@@ -309,28 +305,36 @@ const ensureSeedActiveOrderLock = async (orderId: string, driverId: string): Pro
 };
 
 const migrateLegacyAssignedOrders = async (): Promise<void> => {
-  const result = await documentClient.send(new QueryCommand({
-    TableName: tableName,
-    IndexName: 'GSI2',
-    KeyConditionExpression: 'GSI2PK = :pending',
-    ExpressionAttributeValues: { ':pending': 'ORDER_STATUS#PENDING' },
-  }));
+  const result = await documentClient.send(
+    new QueryCommand({
+      TableName: tableName,
+      IndexName: 'GSI2',
+      KeyConditionExpression: 'GSI2PK = :pending',
+      ExpressionAttributeValues: { ':pending': 'ORDER_STATUS#PENDING' },
+    }),
+  );
   const legacyAssigned = (result.Items ?? []).filter(
     (item) => typeof item.orderId === 'string' && typeof item.driverId === 'string',
   );
-  await Promise.all(legacyAssigned.map((item) => documentClient.send(new UpdateCommand({
-    TableName: tableName,
-    Key: { PK: `ORDER#${item.orderId as string}`, SK: 'METADATA' },
-    UpdateExpression: 'SET #status = :assigned, GSI1SK = :gsi1sk, GSI2PK = :gsi2pk',
-    ConditionExpression: '#status = :pending AND attribute_exists(driverId)',
-    ExpressionAttributeNames: { '#status': 'status' },
-    ExpressionAttributeValues: {
-      ':assigned': 'ASSIGNED',
-      ':pending': 'PENDING',
-      ':gsi1sk': `STATUS#ASSIGNED#CREATED#${item.createdAt as string}#ORDER#${item.orderId as string}`,
-      ':gsi2pk': 'ORDER_STATUS#ASSIGNED',
-    },
-  }))));
+  await Promise.all(
+    legacyAssigned.map((item) =>
+      documentClient.send(
+        new UpdateCommand({
+          TableName: tableName,
+          Key: { PK: `ORDER#${item.orderId as string}`, SK: 'METADATA' },
+          UpdateExpression: 'SET #status = :assigned, GSI1SK = :gsi1sk, GSI2PK = :gsi2pk',
+          ConditionExpression: '#status = :pending AND attribute_exists(driverId)',
+          ExpressionAttributeNames: { '#status': 'status' },
+          ExpressionAttributeValues: {
+            ':assigned': 'ASSIGNED',
+            ':pending': 'PENDING',
+            ':gsi1sk': `STATUS#ASSIGNED#CREATED#${item.createdAt as string}#ORDER#${item.orderId as string}`,
+            ':gsi2pk': 'ORDER_STATUS#ASSIGNED',
+          },
+        }),
+      ),
+    ),
+  );
   if (legacyAssigned.length > 0) {
     console.info(`Migrated ${legacyAssigned.length} legacy assigned orders`);
   }
@@ -339,74 +343,151 @@ const migrateLegacyAssignedOrders = async (): Promise<void> => {
 const seedData = async (): Promise<void> => {
   const drivers = [
     {
-      driverId: 'DRV-018', name: 'Minh Duy', phone: '+84901110018',
-      vehiclePlate: '51A-482.17', currentArea: 'District 1', status: 'ON_DELIVERY',
-      completedToday: 8, lat: 10.7738, lng: 106.7018,
+      driverId: 'DRV-018',
+      name: 'Minh Duy',
+      phone: '+84901110018',
+      vehiclePlate: '51A-482.17',
+      currentArea: 'District 1',
+      status: 'ON_DELIVERY',
+      completedToday: 8,
+      lat: 10.7738,
+      lng: 106.7018,
       activeOrderId: '0fe1212c-930a-47af-93a7-480ca0a3e771',
-      locationUpdatedAt: '2026-08-24T03:12:00.000Z', updatedAt: '2026-08-24T03:12:00.000Z',
+      locationUpdatedAt: '2026-08-24T03:12:00.000Z',
+      updatedAt: '2026-08-24T03:12:00.000Z',
     },
     {
-      driverId: 'DRV-026', name: 'Hải Nam', phone: '+84901110026',
-      vehiclePlate: '59C-318.42', currentArea: 'Thu Duc', status: 'ON_DELIVERY',
-      completedToday: 6, lat: 10.7881, lng: 106.7461,
-      locationUpdatedAt: '2026-08-24T03:08:00.000Z', updatedAt: '2026-08-24T03:08:00.000Z',
+      driverId: 'DRV-026',
+      name: 'Hải Nam',
+      phone: '+84901110026',
+      vehiclePlate: '59C-318.42',
+      currentArea: 'Thu Duc',
+      status: 'ON_DELIVERY',
+      completedToday: 6,
+      lat: 10.7881,
+      lng: 106.7461,
+      locationUpdatedAt: '2026-08-24T03:08:00.000Z',
+      updatedAt: '2026-08-24T03:08:00.000Z',
     },
     {
-      driverId: 'DRV-011', name: 'Thanh An', phone: '+84901110011',
-      vehiclePlate: '50H-921.06', currentArea: 'District 7', status: 'AVAILABLE',
-      completedToday: 7, lat: 10.7398, lng: 106.7122,
-      locationUpdatedAt: '2026-08-24T03:02:00.000Z', updatedAt: '2026-08-24T03:02:00.000Z',
+      driverId: 'DRV-011',
+      name: 'Thanh An',
+      phone: '+84901110011',
+      vehiclePlate: '50H-921.06',
+      currentArea: 'District 7',
+      status: 'AVAILABLE',
+      completedToday: 7,
+      lat: 10.7398,
+      lng: 106.7122,
+      locationUpdatedAt: '2026-08-24T03:02:00.000Z',
+      updatedAt: '2026-08-24T03:02:00.000Z',
     },
     {
-      driverId: 'DRV-032', name: 'Hoàng Sơn', phone: '+84901110032',
-      vehiclePlate: '51D-104.38', currentArea: 'Binh Thanh', status: 'OFFLINE',
-      completedToday: 0, lat: null, lng: null,
-      locationUpdatedAt: null, updatedAt: '2026-08-24T01:14:00.000Z',
+      driverId: 'DRV-032',
+      name: 'Hoàng Sơn',
+      phone: '+84901110032',
+      vehiclePlate: '51D-104.38',
+      currentArea: 'Binh Thanh',
+      status: 'OFFLINE',
+      completedToday: 0,
+      lat: null,
+      lng: null,
+      locationUpdatedAt: null,
+      updatedAt: '2026-08-24T01:14:00.000Z',
     },
   ] as const;
 
   const orders = [
     {
-      orderId: '0fe1212c-930a-47af-93a7-480ca0a3e771', customerName: 'Nguyễn Minh Anh',
-      customerPhone: '+84901234567', dropoffAddress: '72 Nguyen Hue Street, District 1, Ho Chi Minh City',
-      region: 'District 1', lat: 10.77428, lng: 106.70391, status: 'IN_PROGRESS',
-      driverId: 'DRV-018', createdAt: '2026-08-24T02:45:00.000Z', deliveredAt: null,
+      orderId: '0fe1212c-930a-47af-93a7-480ca0a3e771',
+      customerName: 'Nguyễn Minh Anh',
+      customerPhone: '+84901234567',
+      dropoffAddress: '72 Nguyen Hue Street, District 1, Ho Chi Minh City',
+      region: 'District 1',
+      lat: 10.77428,
+      lng: 106.70391,
+      status: 'IN_PROGRESS',
+      driverId: 'DRV-018',
+      createdAt: '2026-08-24T02:45:00.000Z',
+      deliveredAt: null,
     },
     {
-      orderId: '0c8e3c60-05b1-46de-a947-79aa26e67075', customerName: 'Trần Lan Anh',
-      customerPhone: '+84912345678', dropoffAddress: '15 Vo Van Tan Street, District 3, Ho Chi Minh City',
-      region: 'District 3', lat: 10.77712, lng: 106.68842, status: 'PENDING',
-      driverId: null, createdAt: '2026-08-24T03:20:00.000Z', deliveredAt: null,
+      orderId: '0c8e3c60-05b1-46de-a947-79aa26e67075',
+      customerName: 'Trần Lan Anh',
+      customerPhone: '+84912345678',
+      dropoffAddress: '15 Vo Van Tan Street, District 3, Ho Chi Minh City',
+      region: 'District 3',
+      lat: 10.77712,
+      lng: 106.68842,
+      status: 'PENDING',
+      driverId: null,
+      createdAt: '2026-08-24T03:20:00.000Z',
+      deliveredAt: null,
     },
     {
-      orderId: 'edccbd70-71f7-4b05-b2b5-dab54fb596d4', customerName: 'Lê Khánh Linh',
-      customerPhone: '+84923456789', dropoffAddress: '82 Dien Bien Phu Street, Binh Thanh District, Ho Chi Minh City',
-      region: 'Binh Thanh', lat: 10.80122, lng: 106.71014, status: 'PENDING',
-      driverId: null, createdAt: '2026-08-24T03:10:00.000Z', deliveredAt: null,
+      orderId: 'edccbd70-71f7-4b05-b2b5-dab54fb596d4',
+      customerName: 'Lê Khánh Linh',
+      customerPhone: '+84923456789',
+      dropoffAddress: '82 Dien Bien Phu Street, Binh Thanh District, Ho Chi Minh City',
+      region: 'Binh Thanh',
+      lat: 10.80122,
+      lng: 106.71014,
+      status: 'PENDING',
+      driverId: null,
+      createdAt: '2026-08-24T03:10:00.000Z',
+      deliveredAt: null,
     },
     {
-      orderId: '20dcfe10-c53c-4d87-b521-23b75ceaff71', customerName: 'Phạm Tuấn Kiệt',
-      customerPhone: '+84934567890', dropoffAddress: '21 Mai Chi Tho Street, Thu Duc City, Ho Chi Minh City',
-      region: 'Thu Duc', lat: 10.78752, lng: 106.74915, status: 'ASSIGNED',
-      driverId: 'DRV-026', createdAt: '2026-08-24T02:55:00.000Z', deliveredAt: null,
+      orderId: '20dcfe10-c53c-4d87-b521-23b75ceaff71',
+      customerName: 'Phạm Tuấn Kiệt',
+      customerPhone: '+84934567890',
+      dropoffAddress: '21 Mai Chi Tho Street, Thu Duc City, Ho Chi Minh City',
+      region: 'Thu Duc',
+      lat: 10.78752,
+      lng: 106.74915,
+      status: 'ASSIGNED',
+      driverId: 'DRV-026',
+      createdAt: '2026-08-24T02:55:00.000Z',
+      deliveredAt: null,
     },
     {
-      orderId: 'f2d6e07d-a558-4026-9f2d-6fa637e097d3', customerName: 'Đỗ Bảo Ngọc',
-      customerPhone: '+84945678901', dropoffAddress: '119 Lam Van Ben Street, District 7, Ho Chi Minh City',
-      region: 'District 7', lat: 10.7391, lng: 106.7131, status: 'DELIVERED',
-      driverId: 'DRV-011', createdAt: '2026-08-24T01:32:00.000Z', deliveredAt: '2026-08-24T02:06:00.000Z',
+      orderId: 'f2d6e07d-a558-4026-9f2d-6fa637e097d3',
+      customerName: 'Đỗ Bảo Ngọc',
+      customerPhone: '+84945678901',
+      dropoffAddress: '119 Lam Van Ben Street, District 7, Ho Chi Minh City',
+      region: 'District 7',
+      lat: 10.7391,
+      lng: 106.7131,
+      status: 'DELIVERED',
+      driverId: 'DRV-011',
+      createdAt: '2026-08-24T01:32:00.000Z',
+      deliveredAt: '2026-08-24T02:06:00.000Z',
     },
     {
-      orderId: '62fcb4ad-1079-437b-a837-87dd2a7ea113', customerName: 'Vũ Quốc Bảo',
-      customerPhone: '+84956789012', dropoffAddress: '82 Nguyen Van Troi Street, Phu Nhuan District, Ho Chi Minh City',
-      region: 'Phu Nhuan', lat: 10.7962, lng: 106.6732, status: 'DELIVERED',
-      driverId: 'DRV-018', createdAt: '2026-08-24T01:10:00.000Z', deliveredAt: '2026-08-24T01:48:00.000Z',
+      orderId: '62fcb4ad-1079-437b-a837-87dd2a7ea113',
+      customerName: 'Vũ Quốc Bảo',
+      customerPhone: '+84956789012',
+      dropoffAddress: '82 Nguyen Van Troi Street, Phu Nhuan District, Ho Chi Minh City',
+      region: 'Phu Nhuan',
+      lat: 10.7962,
+      lng: 106.6732,
+      status: 'DELIVERED',
+      driverId: 'DRV-018',
+      createdAt: '2026-08-24T01:10:00.000Z',
+      deliveredAt: '2026-08-24T01:48:00.000Z',
     },
     {
-      orderId: 'b5a314f0-bba4-4eaf-b88b-cdb4479632fb', customerName: 'Mai Thu Hà',
-      customerPhone: '+84967890123', dropoffAddress: '2 Le Duan Boulevard, District 1, Ho Chi Minh City',
-      region: 'District 1', lat: 10.78191, lng: 106.69925, status: 'ASSIGNED',
-      driverId: 'DRV-018', createdAt: '2026-09-10T00:45:00.000Z', deliveredAt: null,
+      orderId: 'b5a314f0-bba4-4eaf-b88b-cdb4479632fb',
+      customerName: 'Mai Thu Hà',
+      customerPhone: '+84967890123',
+      dropoffAddress: '2 Le Duan Boulevard, District 1, Ho Chi Minh City',
+      region: 'District 1',
+      lat: 10.78191,
+      lng: 106.69925,
+      status: 'ASSIGNED',
+      driverId: 'DRV-018',
+      createdAt: '2026-09-10T00:45:00.000Z',
+      deliveredAt: null,
     },
   ] as const;
 
@@ -453,21 +534,25 @@ const seedData = async (): Promise<void> => {
       createSeedEvent(order.orderId, 'ORDER_CREATED', order.createdAt, 'local-admin'),
     ];
     if (order.driverId) {
-      events.push(createSeedEvent(
-        order.orderId,
-        'DRIVER_ASSIGNED',
-        addMinutes(order.createdAt, 5),
-        'local-admin',
-        { driverId: order.driverId },
-      ));
+      events.push(
+        createSeedEvent(
+          order.orderId,
+          'DRIVER_ASSIGNED',
+          addMinutes(order.createdAt, 5),
+          'local-admin',
+          { driverId: order.driverId },
+        ),
+      );
     }
     if (order.status === 'IN_PROGRESS' || order.status === 'DELIVERED') {
-      events.push(createSeedEvent(
-        order.orderId,
-        'DELIVERY_STARTED',
-        addMinutes(order.createdAt, 10),
-        order.driverId ?? 'local-admin',
-      ));
+      events.push(
+        createSeedEvent(
+          order.orderId,
+          'DELIVERY_STARTED',
+          addMinutes(order.createdAt, 10),
+          order.driverId ?? 'local-admin',
+        ),
+      );
     }
     if (order.status === 'DELIVERED' && order.deliveredAt) {
       events.push(
@@ -498,19 +583,23 @@ const seedData = async (): Promise<void> => {
 
   // Store a tiny valid PNG plus metadata so the signed Proof of Delivery read
   // path can be demonstrated without requiring a driver upload first.
-  const proofOrder = orders.find((order) => order.orderId === 'f2d6e07d-a558-4026-9f2d-6fa637e097d3')!;
+  const proofOrder = orders.find(
+    (order) => order.orderId === 'f2d6e07d-a558-4026-9f2d-6fa637e097d3',
+  )!;
   const proofObjectKey = `proof-of-delivery/${proofOrder.orderId}/seed-proof.png`;
   const proofBytes = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
     'base64',
   );
-  await storageClient.send(new PutObjectCommand({
-    Bucket: proofBucket,
-    Key: proofObjectKey,
-    Body: proofBytes,
-    ContentType: 'image/png',
-    Metadata: { orderid: proofOrder.orderId },
-  }));
+  await storageClient.send(
+    new PutObjectCommand({
+      Bucket: proofBucket,
+      Key: proofObjectKey,
+      Body: proofBytes,
+      ContentType: 'image/png',
+      Metadata: { orderid: proofOrder.orderId },
+    }),
+  );
   await putSeedItem({
     PK: `ORDER#${proofOrder.orderId}`,
     SK: 'PROOF#POD',

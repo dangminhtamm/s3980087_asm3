@@ -13,20 +13,14 @@ export class AnalyticsRunController {
   ): Promise<void> => {
     try {
       const requestedBy =
-        request.authenticatedUser?.username ??
-        request.authenticatedUser?.subject ??
-        'unknown';
+        request.authenticatedUser?.username ?? request.authenticatedUser?.subject ?? 'unknown';
       response.status(202).json({ data: await this.runs.start(requestedBy) });
     } catch (error: unknown) {
       next(error);
     }
   };
 
-  public get = async (
-    request: Request,
-    response: Response,
-    next: NextFunction,
-  ): Promise<void> => {
+  public get = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
     try {
       const { runId } = analyticsRunParamsSchema.parse(request.params);
       response.status(200).json({ data: await this.runs.get(runId) });

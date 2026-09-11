@@ -3,11 +3,7 @@ import {
   PostToConnectionCommand,
   type ApiGatewayManagementApiClient,
 } from '@aws-sdk/client-apigatewaymanagementapi';
-import {
-  DeleteCommand,
-  QueryCommand,
-  type DynamoDBDocumentClient,
-} from '@aws-sdk/lib-dynamodb';
+import { DeleteCommand, QueryCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
 import type { DriverLocation } from '../domain/entities/driver.js';
 
@@ -35,13 +31,12 @@ export class RealtimeBroadcaster {
           ProjectionExpression: 'connectionId, roles',
         }),
       );
-      const connections = (result.Items ?? [])
-        .filter(
-          (item): item is ConnectionItem =>
-            typeof item.connectionId === 'string' &&
-            Array.isArray(item.roles) &&
-            item.roles.includes('ADMIN'),
-        );
+      const connections = (result.Items ?? []).filter(
+        (item): item is ConnectionItem =>
+          typeof item.connectionId === 'string' &&
+          Array.isArray(item.roles) &&
+          item.roles.includes('ADMIN'),
+      );
       const payload = Buffer.from(
         JSON.stringify({ type: 'driver.location.updated', data: location }),
       );
@@ -67,7 +62,10 @@ export class RealtimeBroadcaster {
         new PostToConnectionCommand({ ConnectionId: connectionId, Data: payload }),
       );
     } catch (error: unknown) {
-      if (error instanceof GoneException || (error instanceof Error && error.name === 'GoneException')) {
+      if (
+        error instanceof GoneException ||
+        (error instanceof Error && error.name === 'GoneException')
+      ) {
         await this.database.send(
           new DeleteCommand({
             TableName: this.tableName,

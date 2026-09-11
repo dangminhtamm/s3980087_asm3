@@ -38,16 +38,13 @@ export const useDriverLocationStream = (
     let retryTimer: number | null = null;
 
     const connect = async (): Promise<void> => {
-      setStatus((current) => current === 'connecting' ? 'connecting' : 'retrying');
+      setStatus((current) => (current === 'connecting' ? 'connecting' : 'retrying'));
       try {
-        const ticketResponse = await cloudFleetApi.post<ApiEnvelope<RealtimeTicket>>(
-          '/api/realtime/ticket',
-        );
+        const ticketResponse =
+          await cloudFleetApi.post<ApiEnvelope<RealtimeTicket>>('/api/realtime/ticket');
         if (!active) return;
         const { ticket, webSocketUrl } = ticketResponse.data.data;
-        socket = new WebSocket(
-          `${webSocketUrl}?ticket=${encodeURIComponent(ticket)}`,
-        );
+        socket = new WebSocket(`${webSocketUrl}?ticket=${encodeURIComponent(ticket)}`);
         socket.onopen = () => active && setStatus('connected');
         socket.onmessage = (event) => {
           try {

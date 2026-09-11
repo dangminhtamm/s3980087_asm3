@@ -21,12 +21,9 @@ jobs:
       - run: npm ci
       - run: npm ci --prefix frontend
       - run: npm ci --prefix infra
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run build
-      - run: npm --prefix frontend run build
-      - run: npm run infra:typecheck
-      - run: npm run infra:synth
+      - run: npm run verify
+      - if: always()
+        run: docker compose down
 
   performance-budget:
     runs-on: ubuntu-latest

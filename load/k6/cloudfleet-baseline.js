@@ -43,11 +43,19 @@ const headers = (mutation = false, suffix = '') => ({
   'Content-Type': 'application/json',
   'X-Request-ID': `k6-${vus}-${typeof __VU === 'undefined' ? 0 : __VU}-${typeof __ITER === 'undefined' ? 0 : __ITER}-${suffix || 'request'}`,
   ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-  ...(mutation ? { 'Idempotency-Key': `k6-${vus}-${typeof __VU === 'undefined' ? 0 : __VU}-${typeof __ITER === 'undefined' ? 0 : __ITER}-${suffix}-${Math.random()}` } : {}),
+  ...(mutation
+    ? {
+        'Idempotency-Key': `k6-${vus}-${typeof __VU === 'undefined' ? 0 : __VU}-${typeof __ITER === 'undefined' ? 0 : __ITER}-${suffix}-${Math.random()}`,
+      }
+    : {}),
 });
 
 const jsonData = (response) => {
-  try { return response.json('data'); } catch (_) { return null; }
+  try {
+    return response.json('data');
+  } catch {
+    return null;
+  }
 };
 
 const batchChunks = (requests, size = 20) => {
@@ -63,14 +71,23 @@ export function setup() {
   for (let index = 0; index < vus; index += 1) {
     const phoneSuffix = String((vus * 1000 + index) % 10_000_000).padStart(7, '0');
     driverRequests.push({
-      method: 'POST', url: `${baseUrl}/api/drivers`,
+      method: 'POST',
+      url: `${baseUrl}/api/drivers`,
       body: JSON.stringify({
         name: `k6 driver ${vus}-${index}`,
         phone: `+849${phoneSuffix}`,
         vehiclePlate: `K6-${vus}-${index}`,
-        currentArea: 'Load test', maxWeightKg: 1000, maxVolumeM3: 10,
+        currentArea: 'Load test',
+        maxWeightKg: 1000,
+        maxVolumeM3: 10,
       }),
-      params: { headers: { ...headers(true, `setup-driver-${index}`), 'Idempotency-Key': `k6-${vus}-driver-${index}-${Date.now()}` }, tags: { endpoint: 'setup_driver' } },
+      params: {
+        headers: {
+          ...headers(true, `setup-driver-${index}`),
+          'Idempotency-Key': `k6-${vus}-driver-${index}-${Date.now()}`,
+        },
+        tags: { endpoint: 'setup_driver' },
+      },
     });
   }
   const driverResponses = batchChunks(driverRequests);
@@ -81,26 +98,40 @@ export function setup() {
   const orderRequests = [];
   for (let index = 0; index < lifecycleCount; index += 1) {
     orderRequests.push({
-      method: 'POST', url: `${baseUrl}/api/orders`,
+      method: 'POST',
+      url: `${baseUrl}/api/orders`,
       body: JSON.stringify({
         customerName: `k6 customer ${vus}-${index}`,
         customerPhone: `+848${String((vus * 1000 + index) % 10_000_000).padStart(7, '0')}`,
         dropoffAddress: `${index + 1} Load Test Street, Ho Chi Minh City`,
-        region: 'Load test', lat: 10.7769 + index * 0.00001,
-        lng: 106.7009 + index * 0.00001, packageWeightKg: 1,
-        packageVolumeM3: 0.01, serviceDurationMinutes: 5,
+        region: 'Load test',
+        lat: 10.7769 + index * 0.00001,
+        lng: 106.7009 + index * 0.00001,
+        packageWeightKg: 1,
+        packageVolumeM3: 0.01,
+        serviceDurationMinutes: 5,
       }),
-      params: { headers: { ...headers(true, `setup-order-${index}`), 'Idempotency-Key': `k6-${vus}-order-${index}-${Date.now()}` }, tags: { endpoint: 'setup_order' } },
+      params: {
+        headers: {
+          ...headers(true, `setup-order-${index}`),
+          'Idempotency-Key': `k6-${vus}-order-${index}-${Date.now()}`,
+        },
+        tags: { endpoint: 'setup_order' },
+      },
     });
   }
   const orderResponses = batchChunks(orderRequests);
   const orders = orderResponses.map(jsonData).filter(Boolean);
-  if (orders.length !== lifecycleCount) throw new Error(`Setup created ${orders.length}/${lifecycleCount} orders`);
+  if (orders.length !== lifecycleCount)
+    throw new Error(`Setup created ${orders.length}/${lifecycleCount} orders`);
 
-  const trackingResponses = batchChunks(orders.map((order, index) => ({
-    method: 'GET', url: `${baseUrl}/api/orders/${order.orderId}/tracking-link`,
-    params: { headers: headers(), tags: { endpoint: `setup_tracking_link_${index}` } },
-  })));
+  const trackingResponses = batchChunks(
+    orders.map((order, index) => ({
+      method: 'GET',
+      url: `${baseUrl}/api/orders/${order.orderId}/tracking-link`,
+      params: { headers: headers(), tags: { endpoint: `setup_tracking_link_${index}` } },
+    })),
+  );
   const trackingTokens = trackingResponses
     .map((response) => jsonData(response)?.url?.split('/track/')[1])
     .filter(Boolean);
@@ -123,37 +154,60 @@ const record = (response, trend, expected = 200) => {
 export default function (data) {
   const flow = (__VU - 1) % 5;
   if (flow === 0) {
-    const response = http.get(`${baseUrl}/api/orders?limit=50`, { headers: headers(), tags: { endpoint: 'get_orders' } });
+    const response = http.get(`${baseUrl}/api/orders?limit=50`, {
+      headers: headers(),
+      tags: { endpoint: 'get_orders' },
+    });
     record(response, getOrdersDuration);
   } else if (flow === 1) {
     const token = data.trackingTokens[(__VU - 1) % data.trackingTokens.length];
-    const response = http.get(`${baseUrl}/api/tracking/${encodeURIComponent(token)}`, { headers: headers(), tags: { endpoint: 'tracking_refresh' } });
+    const response = http.get(`${baseUrl}/api/tracking/${encodeURIComponent(token)}`, {
+      headers: headers(),
+      tags: { endpoint: 'tracking_refresh' },
+    });
     record(response, trackingDuration);
   } else if (flow === 2) {
     const driver = data.drivers[(__VU - 1) % data.drivers.length];
-    const response = http.patch(`${baseUrl}/api/drivers/${driver.driverId}/location`, JSON.stringify({
-      lat: 10.7769 + ((__ITER % 100) * 0.000001),
-      lng: 106.7009 + ((__ITER % 100) * 0.000001),
-      accuracy: 8,
-      recordedAt: new Date().toISOString(),
-    }), { headers: headers(true, 'gps'), tags: { endpoint: 'gps_update' } });
+    const response = http.patch(
+      `${baseUrl}/api/drivers/${driver.driverId}/location`,
+      JSON.stringify({
+        lat: 10.7769 + (__ITER % 100) * 0.000001,
+        lng: 106.7009 + (__ITER % 100) * 0.000001,
+        accuracy: 8,
+        recordedAt: new Date().toISOString(),
+      }),
+      { headers: headers(true, 'gps'), tags: { endpoint: 'gps_update' } },
+    );
     record(response, gpsDuration);
   } else if (flow === 3) {
-    const response = http.get(`${baseUrl}/api/operations/issues?limit=50`, { headers: headers(), tags: { endpoint: 'operations_issues' } });
+    const response = http.get(`${baseUrl}/api/operations/issues?limit=50`, {
+      headers: headers(),
+      tags: { endpoint: 'operations_issues' },
+    });
     record(response, issuesDuration);
   } else if (!lifecycleDone) {
     const slot = Math.floor((__VU - 1) / 5) % data.orders.length;
     const order = data.orders[slot];
     const driver = data.drivers[(__VU - 1) % data.drivers.length];
     const startedAt = Date.now();
-    const assignment = http.patch(`${baseUrl}/api/orders/${order.orderId}/assign`, JSON.stringify({ driverId: driver.driverId }), {
-      headers: headers(true, 'assign'), tags: { endpoint: 'assign_mutation' },
-    });
+    const assignment = http.patch(
+      `${baseUrl}/api/orders/${order.orderId}/assign`,
+      JSON.stringify({ driverId: driver.driverId }),
+      {
+        headers: headers(true, 'assign'),
+        tags: { endpoint: 'assign_mutation' },
+      },
+    );
     let ok = assignment.status === 200;
     if (ok) {
-      const status = http.patch(`${baseUrl}/api/orders/${order.orderId}/status`, JSON.stringify({ status: 'IN_PROGRESS' }), {
-        headers: headers(true, 'status'), tags: { endpoint: 'status_mutation' },
-      });
+      const status = http.patch(
+        `${baseUrl}/api/orders/${order.orderId}/status`,
+        JSON.stringify({ status: 'IN_PROGRESS' }),
+        {
+          headers: headers(true, 'status'),
+          tags: { endpoint: 'status_mutation' },
+        },
+      );
       ok = status.status === 200;
     }
     mutationDuration.add(Date.now() - startedAt);
@@ -162,7 +216,10 @@ export default function (data) {
     check(ok, { 'assign and status mutation succeeded': (value) => value });
     lifecycleDone = true;
   } else {
-    const response = http.get(`${baseUrl}/api/orders?limit=50`, { headers: headers(), tags: { endpoint: 'get_orders_after_mutation' } });
+    const response = http.get(`${baseUrl}/api/orders?limit=50`, {
+      headers: headers(),
+      tags: { endpoint: 'get_orders_after_mutation' },
+    });
     record(response, getOrdersDuration);
   }
   sleep(0.5);

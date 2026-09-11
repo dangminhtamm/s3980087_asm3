@@ -10,16 +10,22 @@ export class TelemetryController {
 
       if (telemetry.type === 'WEB_VITAL') {
         const metricName = `WebVital${telemetry.name}`;
-        emitMetrics([{
-          name: metricName,
-          value: telemetry.value,
-          unit: telemetry.name === 'CLS' ? 'None' : 'Milliseconds',
-        }], {
-          Vital: telemetry.name,
-          Rating: telemetry.rating,
-          Page: telemetry.page,
-          DeviceType: telemetry.deviceType,
-        }, { navigationType: telemetry.navigationType, delta: telemetry.delta });
+        emitMetrics(
+          [
+            {
+              name: metricName,
+              value: telemetry.value,
+              unit: telemetry.name === 'CLS' ? 'None' : 'Milliseconds',
+            },
+          ],
+          {
+            Vital: telemetry.name,
+            Rating: telemetry.rating,
+            Page: telemetry.page,
+            DeviceType: telemetry.deviceType,
+          },
+          { navigationType: telemetry.navigationType, delta: telemetry.delta },
+        );
       } else if (telemetry.type === 'OFFLINE_OUTBOX') {
         const metrics: MetricValue[] = [
           { name: 'OfflineOutboxSize', value: telemetry.size, unit: 'Count' },
@@ -30,14 +36,17 @@ export class TelemetryController {
         ];
         emitMetrics(metrics, { Event: telemetry.event });
       } else {
-        emitMetrics([
-          { name: 'PodUploadDuration', value: telemetry.durationMs, unit: 'Milliseconds' },
-          { name: 'PodUploadBytes', value: telemetry.sizeBytes, unit: 'Bytes' },
-          { name: 'PodUploadAttemptCount', value: 1, unit: 'Count' },
-          ...(telemetry.outcome === 'success'
-            ? [{ name: 'PodUploadSuccessCount', value: 1, unit: 'Count' as const }]
-            : [{ name: 'PodUploadFailureCount', value: 1, unit: 'Count' as const }]),
-        ], { Outcome: telemetry.outcome });
+        emitMetrics(
+          [
+            { name: 'PodUploadDuration', value: telemetry.durationMs, unit: 'Milliseconds' },
+            { name: 'PodUploadBytes', value: telemetry.sizeBytes, unit: 'Bytes' },
+            { name: 'PodUploadAttemptCount', value: 1, unit: 'Count' },
+            ...(telemetry.outcome === 'success'
+              ? [{ name: 'PodUploadSuccessCount', value: 1, unit: 'Count' as const }]
+              : [{ name: 'PodUploadFailureCount', value: 1, unit: 'Count' as const }]),
+          ],
+          { Outcome: telemetry.outcome },
+        );
       }
 
       response.status(202).end();

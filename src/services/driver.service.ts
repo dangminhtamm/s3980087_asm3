@@ -22,15 +22,13 @@ import {
 import { AppError } from '../errors/app-error.js';
 import type { RealtimeBroadcaster } from './realtime-broadcaster.service.js';
 
-const driverIndexPartitionKey = (status: DriverStatus): string =>
-  `DRIVER_STATUS#${status}`;
+const driverIndexPartitionKey = (status: DriverStatus): string => `DRIVER_STATUS#${status}`;
 
 const driverIndexSortKey = (driver: Driver): string =>
   `UPDATED#${driver.updatedAt}#DRIVER#${driver.driverId}`;
 
 const isDriverStatus = (value: unknown): value is DriverStatus =>
-  typeof value === 'string' &&
-  DRIVER_STATUSES.some((status) => status === value);
+  typeof value === 'string' && DRIVER_STATUSES.some((status) => status === value);
 
 export class DriverService {
   public constructor(
@@ -71,10 +69,7 @@ export class DriverService {
     return driver;
   }
 
-  public async listDrivers(
-    status: DriverStatus | undefined,
-    limit: number,
-  ): Promise<Driver[]> {
+  public async listDrivers(status: DriverStatus | undefined, limit: number): Promise<Driver[]> {
     const statuses = status ? [status] : [...DRIVER_STATUSES];
     const results = await Promise.all(
       statuses.map((driverStatus) =>
@@ -116,10 +111,7 @@ export class DriverService {
     return this.toDriver(result.Item);
   }
 
-  public async updateStatus(
-    driverId: string,
-    status: DriverStatus,
-  ): Promise<Driver> {
+  public async updateStatus(driverId: string, status: DriverStatus): Promise<Driver> {
     const current = await this.getDriver(driverId);
     const updatedAt = new Date().toISOString();
     const next = { ...current, status, updatedAt };

@@ -6,10 +6,7 @@ import type {
   AnalyticsPeriodMetric,
 } from '../domain/entities/analytics.js';
 import { AppError } from '../errors/app-error.js';
-import {
-  analyticsSnapshotSchema,
-  type AnalyticsSnapshot,
-} from '../schemas/analytics.schema.js';
+import { analyticsSnapshotSchema, type AnalyticsSnapshot } from '../schemas/analytics.schema.js';
 
 const LATEST_ANALYTICS_KEY = 'analytics/latest/overview.json';
 const DAY_MS = 86_400_000;
@@ -79,13 +76,14 @@ const accumulate = (
 const selectRollup = (day: DailyRollup, region?: string): SelectedRollup => {
   if (!region) return day;
   const regional = day.regions.find((entry) => entry.region === region);
-  if (!regional) return {
-    totalOrders: 0,
-    deliveredOrders: 0,
-    totalDeliveryMinutes: 0,
-    deliveryDurationCount: 0,
-    hourlyOrderVolume: [],
-  };
+  if (!regional)
+    return {
+      totalOrders: 0,
+      deliveredOrders: 0,
+      totalDeliveryMinutes: 0,
+      deliveryDurationCount: 0,
+      hourlyOrderVolume: [],
+    };
   return { ...regional, totalOrders: regional.orderCount };
 };
 
@@ -122,16 +120,9 @@ export class AnalyticsService {
     }
     const previousTo = addDays(from, -1);
     const previousFrom = addDays(previousTo, -(rangeDays - 1));
-    const selectedDays = snapshot.daily.filter(
-      (day) => day.date >= from && day.date <= to,
-    );
+    const selectedDays = snapshot.daily.filter((day) => day.date >= from && day.date <= to);
     const current = aggregatePeriod(snapshot.daily, from, to, query.region);
-    const previous = aggregatePeriod(
-      snapshot.daily,
-      previousFrom,
-      previousTo,
-      query.region,
-    );
+    const previous = aggregatePeriod(snapshot.daily, previousFrom, previousTo, query.region);
 
     const trendByDate = new Map(
       selectedDays.map((day) => {
@@ -192,9 +183,7 @@ export class AnalyticsService {
         successRate: region.successRate,
         averageDeliveryMinutes: region.averageDeliveryMinutes,
         rankBySpeed,
-        isAbnormal:
-          region.successRate < 90 ||
-          (region.averageDeliveryMinutes ?? 0) > slowThreshold,
+        isAbnormal: region.successRate < 90 || (region.averageDeliveryMinutes ?? 0) > slowThreshold,
       };
     });
 
@@ -207,23 +196,16 @@ export class AnalyticsService {
       comparison: {
         previousPeriod: { from: previousFrom, to: previousTo },
         previous,
-        totalOrdersChangePercent: percentChange(
-          current.totalOrders,
-          previous.totalOrders,
-        ),
+        totalOrdersChangePercent: percentChange(current.totalOrders, previous.totalOrders),
         deliveredOrdersChangePercent: percentChange(
           current.deliveredOrders,
           previous.deliveredOrders,
         ),
         successRateChangePoints: round(current.successRate - previous.successRate),
         averageDeliveryMinutesChangePercent:
-          current.averageDeliveryMinutes === null ||
-          previous.averageDeliveryMinutes === null
+          current.averageDeliveryMinutes === null || previous.averageDeliveryMinutes === null
             ? null
-            : percentChange(
-                current.averageDeliveryMinutes,
-                previous.averageDeliveryMinutes,
-              ),
+            : percentChange(current.averageDeliveryMinutes, previous.averageDeliveryMinutes),
       },
       deliveryVolumeTrend,
       hourlyOrderVolume: hourlyTotals.map((orderCount, hour) => ({
@@ -236,11 +218,7 @@ export class AnalyticsService {
 
   private async readSnapshot(): Promise<AnalyticsSnapshot> {
     if (!this.bucketName) {
-      throw new AppError(
-        503,
-        'Analytics storage is not configured',
-        'ANALYTICS_NOT_CONFIGURED',
-      );
+      throw new AppError(503, 'Analytics storage is not configured', 'ANALYTICS_NOT_CONFIGURED');
     }
     try {
       const object = await this.storage.send(

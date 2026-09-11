@@ -36,8 +36,7 @@ const canonicalJson = (value: unknown): string => {
   return JSON.stringify(value) ?? 'null';
 };
 
-const digest = (value: string): string =>
-  createHash('sha256').update(value).digest('hex');
+const digest = (value: string): string => createHash('sha256').update(value).digest('hex');
 
 export const requestFingerprint = (request: IdempotencyRequest): string =>
   digest(`${request.method}\n${request.path}\n${canonicalJson(request.body)}`);
@@ -54,35 +53,35 @@ export class IdempotencyService {
     const now = new Date().toISOString();
 
     try {
-      await this.database.send(new PutCommand({
-        TableName: this.tableName,
-        Item: {
-          PK: `IDEMPOTENCY#${recordKey}`,
-          SK: 'REQUEST',
-          fingerprint,
-          status: 'IN_PROGRESS',
-          createdAt: now,
-          expiresAt: Math.floor(Date.now() / 1000) + RETENTION_SECONDS,
-        },
-        ConditionExpression: 'attribute_not_exists(PK)',
-      }));
+      await this.database.send(
+        new PutCommand({
+          TableName: this.tableName,
+          Item: {
+            PK: `IDEMPOTENCY#${recordKey}`,
+            SK: 'REQUEST',
+            fingerprint,
+            status: 'IN_PROGRESS',
+            createdAt: now,
+            expiresAt: Math.floor(Date.now() / 1000) + RETENTION_SECONDS,
+          },
+          ConditionExpression: 'attribute_not_exists(PK)',
+        }),
+      );
       return { kind: 'STARTED', recordKey, fingerprint };
     } catch (error: unknown) {
       if (!(error instanceof ConditionalCheckFailedException)) throw error;
     }
 
-    const existing = await this.database.send(new GetCommand({
-      TableName: this.tableName,
-      Key: { PK: `IDEMPOTENCY#${recordKey}`, SK: 'REQUEST' },
-      ConsistentRead: true,
-    }));
+    const existing = await this.database.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: { PK: `IDEMPOTENCY#${recordKey}`, SK: 'REQUEST' },
+        ConsistentRead: true,
+      }),
+    );
     const item = existing.Item;
     if (!item) {
-      throw new AppError(
-        409,
-        'The idempotency record changed; retry shortly',
-        'IDEMPOTENCY_RETRY',
-      );
+      throw new AppError(409, 'The idempotency record changed; retry shortly', 'IDEMPOTENCY_RETRY');
     }
     if (item.fingerprint !== fingerprint) {
       throw new AppError(
@@ -119,33 +118,38 @@ export class IdempotencyService {
     if (Buffer.byteLength(serialized) > 300_000) {
       throw new Error('Idempotency response exceeds the safe DynamoDB item size');
     }
-    await this.database.send(new UpdateCommand({
-      TableName: this.tableName,
-      Key: { PK: `IDEMPOTENCY#${recordKey}`, SK: 'REQUEST' },
-      UpdateExpression: 'SET #status = :completed, responseStatus = :responseStatus, responseBody = :responseBody, completedAt = :completedAt',
-      ConditionExpression: 'fingerprint = :fingerprint AND #status = :inProgress',
-      ExpressionAttributeNames: { '#status': 'status' },
-      ExpressionAttributeValues: {
-        ':completed': 'COMPLETED',
-        ':inProgress': 'IN_PROGRESS',
-        ':fingerprint': fingerprint,
-        ':responseStatus': statusCode,
-        ':responseBody': body,
-        ':completedAt': new Date().toISOString(),
-      },
-    }));
+    await this.database.send(
+      new UpdateCommand({
+        TableName: this.tableName,
+        Key: { PK: `IDEMPOTENCY#${recordKey}`, SK: 'REQUEST' },
+        UpdateExpression:
+          'SET #status = :completed, responseStatus = :responseStatus, responseBody = :responseBody, completedAt = :completedAt',
+        ConditionExpression: 'fingerprint = :fingerprint AND #status = :inProgress',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: {
+          ':completed': 'COMPLETED',
+          ':inProgress': 'IN_PROGRESS',
+          ':fingerprint': fingerprint,
+          ':responseStatus': statusCode,
+          ':responseBody': body,
+          ':completedAt': new Date().toISOString(),
+        },
+      }),
+    );
   }
 
   public async abandon(recordKey: string, fingerprint: string): Promise<void> {
-    await this.database.send(new DeleteCommand({
-      TableName: this.tableName,
-      Key: { PK: `IDEMPOTENCY#${recordKey}`, SK: 'REQUEST' },
-      ConditionExpression: 'fingerprint = :fingerprint AND #status = :inProgress',
-      ExpressionAttributeNames: { '#status': 'status' },
-      ExpressionAttributeValues: {
-        ':fingerprint': fingerprint,
-        ':inProgress': 'IN_PROGRESS',
-      },
-    }));
+    await this.database.send(
+      new DeleteCommand({
+        TableName: this.tableName,
+        Key: { PK: `IDEMPOTENCY#${recordKey}`, SK: 'REQUEST' },
+        ConditionExpression: 'fingerprint = :fingerprint AND #status = :inProgress',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: {
+          ':fingerprint': fingerprint,
+          ':inProgress': 'IN_PROGRESS',
+        },
+      }),
+    );
   }
 }

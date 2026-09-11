@@ -21,12 +21,12 @@ npm run local:dev
 
 Open `http://localhost:5173`. The local endpoints are:
 
-| Service | URL |
-| --- | --- |
+| Service        | URL                     |
+| -------------- | ----------------------- |
 | CloudFleet API | `http://localhost:3000` |
 | DynamoDB Local | `http://localhost:8000` |
-| MinIO S3 API | `http://localhost:9000` |
-| MinIO Console | `http://localhost:9001` |
+| MinIO S3 API   | `http://localhost:9000` |
+| MinIO Console  | `http://localhost:9001` |
 
 Useful lifecycle commands:
 
@@ -53,6 +53,19 @@ DynamoDB and MinIO as `healthy`, with `local-init` at `Exited (0)`.
 The API exposes `/health` for process liveness and `/ready` for DynamoDB/S3
 dependency readiness. Stop the foreground Vite process with Ctrl+C, then use
 `npm run local:down` when you also want to stop the Docker services.
+
+## Quality gate
+
+Run the same safety net used by CI from the repository root:
+
+```bash
+npm run verify
+```
+
+It enforces Prettier and zero-warning ESLint, type-checks the backend, frontend
+and infrastructure, runs backend/frontend coverage tests, builds the frontend,
+synthesizes CDK and runs the integration suite against the local Compose stack.
+See `docs/architecture.md` for module boundaries and coverage scope.
 
 ### End-to-end delivery demo
 
@@ -95,53 +108,53 @@ screens to use their in-memory demo dataset when the API is unavailable.
 
 ## Application routes
 
-| Route | Purpose |
-| --- | --- |
-| `/` | Workspace selector |
-| `/admin` | Operational analytics |
-| `/admin/dispatch` | Assign orders and start deliveries |
-| `/admin/fleet` | Driver and vehicle management |
-| `/admin/orders` | Search and create orders |
-| `/admin/settings` | Workspace integrations |
-| `/admin/orders/:orderId` | Order lifecycle, proof and operational actions |
-| `/admin/fleet/:driverId` | Live driver, assignment and delivery history |
-| `/driver` | Current delivery and proof of delivery |
-| `/driver/history` | Completed deliveries |
-| `/driver/profile` | Driver profile |
-| `/login` | Cognito Hosted UI sign-in |
-| `/auth/callback` | OAuth authorization-code callback |
-| `/track/:trackingToken` | Public, private-token customer delivery tracking |
+| Route                    | Purpose                                          |
+| ------------------------ | ------------------------------------------------ |
+| `/`                      | Workspace selector                               |
+| `/admin`                 | Operational analytics                            |
+| `/admin/dispatch`        | Assign orders and start deliveries               |
+| `/admin/fleet`           | Driver and vehicle management                    |
+| `/admin/orders`          | Search and create orders                         |
+| `/admin/settings`        | Workspace integrations                           |
+| `/admin/orders/:orderId` | Order lifecycle, proof and operational actions   |
+| `/admin/fleet/:driverId` | Live driver, assignment and delivery history     |
+| `/driver`                | Current delivery and proof of delivery           |
+| `/driver/history`        | Completed deliveries                             |
+| `/driver/profile`        | Driver profile                                   |
+| `/login`                 | Cognito Hosted UI sign-in                        |
+| `/auth/callback`         | OAuth authorization-code callback                |
+| `/track/:trackingToken`  | Public, private-token customer delivery tracking |
 
 ## REST API
 
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| `GET` | `/api/orders` | List orders by optional status or driver |
-| `POST` | `/api/orders` | Create an order |
-| `GET` | `/api/orders/:id` | Get an order |
-| `GET` | `/api/orders/:id/events` | Read the chronological order lifecycle |
-| `GET` | `/api/orders/:id/tracking-link` | Admin-only private customer link |
-| `GET` | `/api/tracking/:trackingToken` | Public redacted delivery tracking payload |
-| `POST` | `/api/tracking/:trackingToken/reschedule` | Request a new delivery window using the capability token |
-| `POST` | `/api/tracking/:trackingToken/feedback` | Submit a one-time post-delivery rating |
-| `PATCH` | `/api/orders/:id/assign` | Atomically assign an available driver |
-| `PATCH` | `/api/orders/:id/status` | Advance the order state |
-| `GET` | `/api/drivers` | List drivers by optional status |
-| `POST` | `/api/drivers` | Create a driver |
-| `GET` | `/api/drivers/:id` | Get a driver profile |
-| `PATCH` | `/api/drivers/:id/status` | Change driver availability |
-| `PATCH` | `/api/drivers/:id/location` | Persist and broadcast driver coordinates |
-| `GET` | `/api/push/public-key` | Read the configured VAPID public key |
-| `POST` | `/api/drivers/:id/push-subscriptions` | Register a driver's browser push subscription |
-| `DELETE` | `/api/drivers/:id/push-subscriptions` | Remove a driver's browser push subscription |
-| `POST` | `/api/realtime/ticket` | Issue a one-time WebSocket connection ticket |
-| `GET` | `/api/analytics/overview` | Read the latest EMR analytics snapshot |
-| `POST` | `/api/analytics/runs` | Start the automated DynamoDB export and EMR workflow |
-| `GET` | `/api/analytics/runs/:runId` | Read a Step Functions analytics execution status |
-| `GET` | `/api/orders/:id/proof/upload-url` | Create an S3 proof upload URL |
-| `POST` | `/api/orders/:id/proof` | Verify S3 object and store proof metadata |
-| `GET` | `/api/orders/:id/proof` | Get proof metadata |
-| `GET` | `/api/orders/:id/proof/view-url` | Create a short-lived private proof read URL |
+| Method   | Endpoint                                  | Purpose                                                  |
+| -------- | ----------------------------------------- | -------------------------------------------------------- |
+| `GET`    | `/api/orders`                             | List orders by optional status or driver                 |
+| `POST`   | `/api/orders`                             | Create an order                                          |
+| `GET`    | `/api/orders/:id`                         | Get an order                                             |
+| `GET`    | `/api/orders/:id/events`                  | Read the chronological order lifecycle                   |
+| `GET`    | `/api/orders/:id/tracking-link`           | Admin-only private customer link                         |
+| `GET`    | `/api/tracking/:trackingToken`            | Public redacted delivery tracking payload                |
+| `POST`   | `/api/tracking/:trackingToken/reschedule` | Request a new delivery window using the capability token |
+| `POST`   | `/api/tracking/:trackingToken/feedback`   | Submit a one-time post-delivery rating                   |
+| `PATCH`  | `/api/orders/:id/assign`                  | Atomically assign an available driver                    |
+| `PATCH`  | `/api/orders/:id/status`                  | Advance the order state                                  |
+| `GET`    | `/api/drivers`                            | List drivers by optional status                          |
+| `POST`   | `/api/drivers`                            | Create a driver                                          |
+| `GET`    | `/api/drivers/:id`                        | Get a driver profile                                     |
+| `PATCH`  | `/api/drivers/:id/status`                 | Change driver availability                               |
+| `PATCH`  | `/api/drivers/:id/location`               | Persist and broadcast driver coordinates                 |
+| `GET`    | `/api/push/public-key`                    | Read the configured VAPID public key                     |
+| `POST`   | `/api/drivers/:id/push-subscriptions`     | Register a driver's browser push subscription            |
+| `DELETE` | `/api/drivers/:id/push-subscriptions`     | Remove a driver's browser push subscription              |
+| `POST`   | `/api/realtime/ticket`                    | Issue a one-time WebSocket connection ticket             |
+| `GET`    | `/api/analytics/overview`                 | Read the latest EMR analytics snapshot                   |
+| `POST`   | `/api/analytics/runs`                     | Start the automated DynamoDB export and EMR workflow     |
+| `GET`    | `/api/analytics/runs/:runId`              | Read a Step Functions analytics execution status         |
+| `GET`    | `/api/orders/:id/proof/upload-url`        | Create an S3 proof upload URL                            |
+| `POST`   | `/api/orders/:id/proof`                   | Verify S3 object and store proof metadata                |
+| `GET`    | `/api/orders/:id/proof`                   | Get proof metadata                                       |
+| `GET`    | `/api/orders/:id/proof/view-url`          | Create a short-lived private proof read URL              |
 
 All authenticated `POST`, `PUT`, `PATCH`, and `DELETE` requests require an
 `Idempotency-Key` header containing 8–128 safe characters. A completed replay
@@ -165,6 +178,7 @@ IN_PROGRESS/ARRIVED → DELIVERY_FAILED → RESCHEDULED → ASSIGNED
                                       ↘ RETURNING → RETURNED
 PENDING/ASSIGNED/IN_PROGRESS → CANCELLED
 ```
+
 ## DynamoDB access patterns
 
 CloudFleet uses a single-table design:

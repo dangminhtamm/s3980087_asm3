@@ -1,0 +1,18 @@
+{
+  "all": true,
+  "include": [
+    "src/domain/order-lifecycle.ts",
+    "src/domain/entities/order-event.ts",
+    "src/services/geocoding.service.ts",
+    "src/services/idempotency.service.ts",
+    "src/services/operations.service.ts",
+    "src/services/order.service.ts",
+    "src/services/route.service.ts",
+    "src/services/routing.service.ts",
+    "src/services/tracking.service.ts"
+  ],
+  "reporter": ["text", "lcov"],
+  "check-coverage": true,
+  "lines": 80,
+  "statements": 80
+}

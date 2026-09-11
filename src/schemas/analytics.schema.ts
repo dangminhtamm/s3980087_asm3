@@ -51,8 +51,7 @@ export const analyticsOverviewQuerySchema = z
 
     if (value.from && value.to) {
       const days = Math.round(
-        (Date.parse(`${value.to}T00:00:00.000Z`) -
-          Date.parse(`${value.from}T00:00:00.000Z`)) /
+        (Date.parse(`${value.to}T00:00:00.000Z`) - Date.parse(`${value.from}T00:00:00.000Z`)) /
           86_400_000,
       );
       if (days > 366) {

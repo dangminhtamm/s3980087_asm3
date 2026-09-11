@@ -24,5 +24,21 @@
     "locationUpdatedAt": { "type": ["string", "null"], "format": "date-time" },
     "updatedAt": { "type": "string", "format": "date-time" }
   },
-  "required": ["PK", "SK", "GSI2PK", "GSI2SK", "driverId", "name", "phone", "vehiclePlate", "currentArea", "status", "completedToday", "lat", "lng", "locationUpdatedAt", "updatedAt"]
+  "required": [
+    "PK",
+    "SK",
+    "GSI2PK",
+    "GSI2SK",
+    "driverId",
+    "name",
+    "phone",
+    "vehiclePlate",
+    "currentArea",
+    "status",
+    "completedToday",
+    "lat",
+    "lng",
+    "locationUpdatedAt",
+    "updatedAt"
+  ]
 }

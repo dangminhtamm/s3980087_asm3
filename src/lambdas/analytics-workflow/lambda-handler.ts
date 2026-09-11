@@ -44,10 +44,7 @@ const exportDataUri = (
   const suffix = 'manifest-summary.json';
   const normalizedPrefix = s3Prefix?.replace(/^\/+|\/+$/g, '');
   let normalizedManifest = manifestKey.replace(/^\/+/, '');
-  if (
-    normalizedPrefix &&
-    !normalizedManifest.startsWith(`${normalizedPrefix}/`)
-  ) {
+  if (normalizedPrefix && !normalizedManifest.startsWith(`${normalizedPrefix}/`)) {
     normalizedManifest = `${normalizedPrefix}/${normalizedManifest}`;
   }
 
@@ -76,9 +73,7 @@ const startExport = async (runId: string) => {
 };
 
 const checkExport = async (runId: string, exportArn: string) => {
-  const response = await dynamodb.send(
-    new DescribeExportCommand({ ExportArn: exportArn }),
-  );
+  const response = await dynamodb.send(new DescribeExportCommand({ ExportArn: exportArn }));
   const description = response.ExportDescription;
   const status: ExportStatus | undefined = description?.ExportStatus;
   if (!description || !status) {

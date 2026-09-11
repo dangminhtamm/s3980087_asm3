@@ -11,19 +11,33 @@ export class PushController {
     response.status(200).json({ data: { publicKey: this.push.getPublicKey() } });
   };
 
-  public subscribe = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
+  public subscribe = async (
+    request: Request,
+    response: Response,
+    next: NextFunction,
+  ): Promise<void> => {
     try {
       const { id } = driverIdParamsSchema.parse(request.params);
-      response.status(201).json({ data: await this.push.subscribe(id, pushSubscriptionSchema.parse(request.body)) });
-    } catch (error: unknown) { next(error); }
+      response
+        .status(201)
+        .json({ data: await this.push.subscribe(id, pushSubscriptionSchema.parse(request.body)) });
+    } catch (error: unknown) {
+      next(error);
+    }
   };
 
-  public unsubscribe = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
+  public unsubscribe = async (
+    request: Request,
+    response: Response,
+    next: NextFunction,
+  ): Promise<void> => {
     try {
       const { id } = driverIdParamsSchema.parse(request.params);
       const { endpoint } = pushSubscriptionSchema.pick({ endpoint: true }).parse(request.body);
       await this.push.unsubscribe(id, endpoint);
       response.status(204).send();
-    } catch (error: unknown) { next(error); }
+    } catch (error: unknown) {
+      next(error);
+    }
   };
 }

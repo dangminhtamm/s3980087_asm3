@@ -1,7 +1,10 @@
 import type { Order } from '../domain/entities/order.js';
 import { durationMsSince, emitMetrics } from '../observability/metrics.js';
 
-export interface RoutingPoint { lat: number; lng: number }
+export interface RoutingPoint {
+  lat: number;
+  lng: number;
+}
 export interface RoutePlanStop {
   orderId: string;
   sequence: number;
@@ -18,27 +21,42 @@ export interface RoutePlan {
   provider: string;
 }
 
-interface Matrix { durations: number[][]; distances: number[][]; provider: string }
+interface Matrix {
+  durations: number[][];
+  distances: number[][];
+  provider: string;
+}
 
 const haversineMeters = (left: RoutingPoint, right: RoutingPoint): number => {
   const radius = 6_371_000;
-  const radians = (degrees: number) => degrees * Math.PI / 180;
+  const radians = (degrees: number) => (degrees * Math.PI) / 180;
   const lat = radians(right.lat - left.lat);
   const lng = radians(right.lng - left.lng);
-  const value = Math.sin(lat / 2) ** 2 + Math.cos(radians(left.lat)) * Math.cos(radians(right.lat)) * Math.sin(lng / 2) ** 2;
+  const value =
+    Math.sin(lat / 2) ** 2 +
+    Math.cos(radians(left.lat)) * Math.cos(radians(right.lat)) * Math.sin(lng / 2) ** 2;
   return 2 * radius * Math.asin(Math.sqrt(value));
 };
 
 const fallbackMatrix = (points: RoutingPoint[]): Matrix => {
-  const distances = points.map((origin) => points.map((destination) => Math.round(haversineMeters(origin, destination) * 1.25)));
+  const distances = points.map((origin) =>
+    points.map((destination) => Math.round(haversineMeters(origin, destination) * 1.25)),
+  );
   return {
     distances,
-    durations: distances.map((row) => row.map((distance) => Math.round(distance / (25_000 / 3600)))),
+    durations: distances.map((row) =>
+      row.map((distance) => Math.round(distance / (25_000 / 3600))),
+    ),
     provider: 'straight-line-fallback',
   };
 };
 
-const scoreOrder = (order: number[], matrix: Matrix, orders: Order[], departureMs: number): number => {
+const scoreOrder = (
+  order: number[],
+  matrix: Matrix,
+  orders: Order[],
+  departureMs: number,
+): number => {
   let cursor = departureMs;
   let previous = 0;
   let score = 0;
@@ -57,7 +75,11 @@ const scoreOrder = (order: number[], matrix: Matrix, orders: Order[], departureM
   return score;
 };
 
-export const optimizeSequence = (matrix: Matrix, orders: Order[], departureAt: string): number[] => {
+export const optimizeSequence = (
+  matrix: Matrix,
+  orders: Order[],
+  departureAt: string,
+): number[] => {
   const remaining = new Set(orders.map((_, index) => index + 1));
   const sequence: number[] = [];
   let previous = 0;
@@ -69,12 +91,20 @@ export const optimizeSequence = (matrix: Matrix, orders: Order[], departureAt: s
       const order = orders[candidate - 1]!;
       const travel = matrix.durations[previous]?.[candidate] ?? Number.MAX_SAFE_INTEGER;
       const arrival = cursor + travel * 1000;
-      const late = order.timeWindowEnd ? Math.max(0, arrival - Date.parse(order.timeWindowEnd)) / 1000 : 0;
-      const wait = order.timeWindowStart ? Math.max(0, Date.parse(order.timeWindowStart) - arrival) / 1000 : 0;
+      const late = order.timeWindowEnd
+        ? Math.max(0, arrival - Date.parse(order.timeWindowEnd)) / 1000
+        : 0;
+      const wait = order.timeWindowStart
+        ? Math.max(0, Date.parse(order.timeWindowStart) - arrival) / 1000
+        : 0;
       const candidateScore = travel + late * 20 + wait * 0.05;
-      if (candidateScore < bestScore) { best = candidate; bestScore = candidateScore; }
+      if (candidateScore < bestScore) {
+        best = candidate;
+        bestScore = candidateScore;
+      }
     }
-    sequence.push(best); remaining.delete(best);
+    sequence.push(best);
+    remaining.delete(best);
     const selected = orders[best - 1]!;
     cursor += (matrix.durations[previous]?.[best] ?? 0) * 1000;
     if (selected.timeWindowStart) cursor = Math.max(cursor, Date.parse(selected.timeWindowStart));
@@ -86,11 +116,20 @@ export const optimizeSequence = (matrix: Matrix, orders: Order[], departureAt: s
   let bestScore = scoreOrder(best, matrix, orders, Date.parse(departureAt));
   for (let pass = 0; pass < 3; pass += 1) {
     let improved = false;
-    for (let left = 0; left < best.length - 1; left += 1) for (let right = left + 1; right < best.length; right += 1) {
-      const candidate = [...best.slice(0, left), ...best.slice(left, right + 1).reverse(), ...best.slice(right + 1)];
-      const candidateScore = scoreOrder(candidate, matrix, orders, Date.parse(departureAt));
-      if (candidateScore < bestScore) { best = candidate; bestScore = candidateScore; improved = true; }
-    }
+    for (let left = 0; left < best.length - 1; left += 1)
+      for (let right = left + 1; right < best.length; right += 1) {
+        const candidate = [
+          ...best.slice(0, left),
+          ...best.slice(left, right + 1).reverse(),
+          ...best.slice(right + 1),
+        ];
+        const candidateScore = scoreOrder(candidate, matrix, orders, Date.parse(departureAt));
+        if (candidateScore < bestScore) {
+          best = candidate;
+          bestScore = candidateScore;
+          improved = true;
+        }
+      }
     if (!improved) break;
   }
   return best;
@@ -99,11 +138,17 @@ export const optimizeSequence = (matrix: Matrix, orders: Order[], departureAt: s
 export class RoutingService {
   public constructor(
     private readonly provider = process.env.ROUTING_PROVIDER?.trim() || 'straight-line',
-    private readonly baseUrl = process.env.ROUTING_BASE_URL?.trim() || 'https://router.project-osrm.org',
+    private readonly baseUrl = process.env.ROUTING_BASE_URL?.trim() ||
+      'https://router.project-osrm.org',
     private readonly fetcher: typeof fetch = fetch,
   ) {}
 
-  public async plan(origin: RoutingPoint, orders: Order[], departureAt: string, manualOrderIds?: string[]): Promise<RoutePlan> {
+  public async plan(
+    origin: RoutingPoint,
+    orders: Order[],
+    departureAt: string,
+    manualOrderIds?: string[],
+  ): Promise<RoutePlan> {
     const planStartedAt = process.hrtime.bigint();
     const points = [origin, ...orders.map(({ lat, lng }) => ({ lat, lng }))];
     const matrix = await this.getMatrix(points);
@@ -111,13 +156,20 @@ export class RoutingService {
     const sequence = manualOrderIds
       ? manualOrderIds.map((id) => orders.findIndex((order) => order.orderId === id) + 1)
       : optimizeSequence(matrix, orders, departureAt);
-    emitMetrics([
-      { name: 'RouteOptimizationDuration', value: durationMsSince(optimizationStartedAt), unit: 'Milliseconds' },
-      { name: 'RouteOptimizationCount', value: 1, unit: 'Count' },
-    ], {
-      Mode: manualOrderIds ? 'manual' : 'automatic',
-      StopBucket: this.stopBucket(orders.length),
-    });
+    emitMetrics(
+      [
+        {
+          name: 'RouteOptimizationDuration',
+          value: durationMsSince(optimizationStartedAt),
+          unit: 'Milliseconds',
+        },
+        { name: 'RouteOptimizationCount', value: 1, unit: 'Count' },
+      ],
+      {
+        Mode: manualOrderIds ? 'manual' : 'automatic',
+        StopBucket: this.stopBucket(orders.length),
+      },
+    );
     let cursor = Date.parse(departureAt);
     let previous = 0;
     let distance = 0;
@@ -134,50 +186,105 @@ export class RoutingService {
       distance += travelDistance;
       duration = Math.round((cursor - Date.parse(departureAt)) / 1000);
       previous = pointIndex;
-      return { orderId: order.orderId, sequence: index + 1, plannedArrivalAt: arrival, plannedDepartureAt: departure, plannedTravelDurationSeconds: travelDuration, plannedDistanceMeters: travelDistance };
+      return {
+        orderId: order.orderId,
+        sequence: index + 1,
+        plannedArrivalAt: arrival,
+        plannedDepartureAt: departure,
+        plannedTravelDurationSeconds: travelDuration,
+        plannedDistanceMeters: travelDistance,
+      };
     });
     const orderedPoints = [origin, ...sequence.map((index) => points[index]!)];
-    const geometry = matrix.provider === 'osrm' ? await this.getGeometry(orderedPoints).catch(() => orderedPoints.map(({ lat, lng }) => [lat, lng] as [number, number])) : orderedPoints.map(({ lat, lng }) => [lat, lng] as [number, number]);
-    emitMetrics([{ name: 'RoutePlanningDuration', value: durationMsSince(planStartedAt), unit: 'Milliseconds' }], {
-      Provider: matrix.provider,
-      StopBucket: this.stopBucket(orders.length),
-    });
-    return { stops, plannedDistanceMeters: distance, plannedDurationSeconds: duration, geometry, provider: matrix.provider };
+    const geometry =
+      matrix.provider === 'osrm'
+        ? await this.getGeometry(orderedPoints).catch(() =>
+            orderedPoints.map(({ lat, lng }) => [lat, lng] as [number, number]),
+          )
+        : orderedPoints.map(({ lat, lng }) => [lat, lng] as [number, number]);
+    emitMetrics(
+      [
+        {
+          name: 'RoutePlanningDuration',
+          value: durationMsSince(planStartedAt),
+          unit: 'Milliseconds',
+        },
+      ],
+      {
+        Provider: matrix.provider,
+        StopBucket: this.stopBucket(orders.length),
+      },
+    );
+    return {
+      stops,
+      plannedDistanceMeters: distance,
+      plannedDurationSeconds: duration,
+      geometry,
+      provider: matrix.provider,
+    };
   }
 
   private async getMatrix(points: RoutingPoint[]): Promise<Matrix> {
     if (this.provider !== 'osrm') {
       emitMetrics([{ name: 'RoutingFallbackCount', value: 1, unit: 'Count' }], {
-        Provider: 'straight-line', Reason: 'configured', Operation: 'matrix',
+        Provider: 'straight-line',
+        Reason: 'configured',
+        Operation: 'matrix',
       });
       return fallbackMatrix(points);
     }
     const startedAt = process.hrtime.bigint();
     try {
       const coordinates = points.map(({ lat, lng }) => `${lng},${lat}`).join(';');
-      const response = await this.fetcher(`${this.baseUrl}/table/v1/driving/${coordinates}?annotations=duration,distance`, { signal: AbortSignal.timeout(8_000) });
+      const response = await this.fetcher(
+        `${this.baseUrl}/table/v1/driving/${coordinates}?annotations=duration,distance`,
+        { signal: AbortSignal.timeout(8_000) },
+      );
       if (!response.ok) throw new Error('OSRM matrix failed');
-      const body = await response.json() as { code: string; durations: Array<Array<number | null>>; distances: Array<Array<number | null>> };
+      const body = (await response.json()) as {
+        code: string;
+        durations: Array<Array<number | null>>;
+        distances: Array<Array<number | null>>;
+      };
       if (body.code !== 'Ok') throw new Error('OSRM matrix rejected coordinates');
       const matrix = {
-        durations: body.durations.map((row) => row.map((value) => value ?? Number.MAX_SAFE_INTEGER)),
-        distances: body.distances.map((row) => row.map((value) => value ?? Number.MAX_SAFE_INTEGER)),
+        durations: body.durations.map((row) =>
+          row.map((value) => value ?? Number.MAX_SAFE_INTEGER),
+        ),
+        distances: body.distances.map((row) =>
+          row.map((value) => value ?? Number.MAX_SAFE_INTEGER),
+        ),
         provider: 'osrm',
       };
-      emitMetrics([
-        { name: 'RoutingProviderDuration', value: durationMsSince(startedAt), unit: 'Milliseconds' },
-        { name: 'RoutingProviderRequestCount', value: 1, unit: 'Count' },
-      ], { Provider: 'osrm', Operation: 'matrix', Outcome: 'success' });
+      emitMetrics(
+        [
+          {
+            name: 'RoutingProviderDuration',
+            value: durationMsSince(startedAt),
+            unit: 'Milliseconds',
+          },
+          { name: 'RoutingProviderRequestCount', value: 1, unit: 'Count' },
+        ],
+        { Provider: 'osrm', Operation: 'matrix', Outcome: 'success' },
+      );
       return matrix;
     } catch (error: unknown) {
-      emitMetrics([
-        { name: 'RoutingProviderDuration', value: durationMsSince(startedAt), unit: 'Milliseconds' },
-        { name: 'RoutingProviderRequestCount', value: 1, unit: 'Count' },
-        { name: 'RoutingProviderErrorCount', value: 1, unit: 'Count' },
-        { name: 'RoutingFallbackCount', value: 1, unit: 'Count' },
-      ], { Provider: 'osrm', Operation: 'matrix', Outcome: 'fallback' }, {
-        errorName: error instanceof Error ? error.name : 'UnknownError',
-      });
+      emitMetrics(
+        [
+          {
+            name: 'RoutingProviderDuration',
+            value: durationMsSince(startedAt),
+            unit: 'Milliseconds',
+          },
+          { name: 'RoutingProviderRequestCount', value: 1, unit: 'Count' },
+          { name: 'RoutingProviderErrorCount', value: 1, unit: 'Count' },
+          { name: 'RoutingFallbackCount', value: 1, unit: 'Count' },
+        ],
+        { Provider: 'osrm', Operation: 'matrix', Outcome: 'fallback' },
+        {
+          errorName: error instanceof Error ? error.name : 'UnknownError',
+        },
+      );
       return fallbackMatrix(points);
     }
   }
@@ -186,22 +293,42 @@ export class RoutingService {
     const startedAt = process.hrtime.bigint();
     const coordinates = points.map(({ lat, lng }) => `${lng},${lat}`).join(';');
     try {
-      const response = await this.fetcher(`${this.baseUrl}/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=false`, { signal: AbortSignal.timeout(8_000) });
+      const response = await this.fetcher(
+        `${this.baseUrl}/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=false`,
+        { signal: AbortSignal.timeout(8_000) },
+      );
       if (!response.ok) throw new Error('OSRM route failed');
-      const body = await response.json() as { routes?: Array<{ geometry?: { coordinates?: Array<[number, number]> } }> };
-      emitMetrics([
-        { name: 'RoutingProviderDuration', value: durationMsSince(startedAt), unit: 'Milliseconds' },
-        { name: 'RoutingProviderRequestCount', value: 1, unit: 'Count' },
-      ], { Provider: 'osrm', Operation: 'geometry', Outcome: 'success' });
+      const body = (await response.json()) as {
+        routes?: Array<{ geometry?: { coordinates?: Array<[number, number]> } }>;
+      };
+      emitMetrics(
+        [
+          {
+            name: 'RoutingProviderDuration',
+            value: durationMsSince(startedAt),
+            unit: 'Milliseconds',
+          },
+          { name: 'RoutingProviderRequestCount', value: 1, unit: 'Count' },
+        ],
+        { Provider: 'osrm', Operation: 'geometry', Outcome: 'success' },
+      );
       return (body.routes?.[0]?.geometry?.coordinates ?? []).map(([lng, lat]) => [lat, lng]);
     } catch (error: unknown) {
-      emitMetrics([
-        { name: 'RoutingProviderDuration', value: durationMsSince(startedAt), unit: 'Milliseconds' },
-        { name: 'RoutingProviderRequestCount', value: 1, unit: 'Count' },
-        { name: 'RoutingProviderErrorCount', value: 1, unit: 'Count' },
-      ], { Provider: 'osrm', Operation: 'geometry', Outcome: 'error' }, {
-        errorName: error instanceof Error ? error.name : 'UnknownError',
-      });
+      emitMetrics(
+        [
+          {
+            name: 'RoutingProviderDuration',
+            value: durationMsSince(startedAt),
+            unit: 'Milliseconds',
+          },
+          { name: 'RoutingProviderRequestCount', value: 1, unit: 'Count' },
+          { name: 'RoutingProviderErrorCount', value: 1, unit: 'Count' },
+        ],
+        { Provider: 'osrm', Operation: 'geometry', Outcome: 'error' },
+        {
+          errorName: error instanceof Error ? error.name : 'UnknownError',
+        },
+      );
       throw error;
     }
   }

@@ -85,16 +85,22 @@ interface PublicTracking {
   driverApproaching: boolean;
   estimatedArrivalMinutes: number | null;
   distanceRemainingKm: number | null;
-  proof: { confirmed: boolean; uploadedAt: string | null; recipientName: string | null; signatureCaptured: boolean };
+  proof: {
+    confirmed: boolean;
+    uploadedAt: string | null;
+    recipientName: string | null;
+    signatureCaptured: boolean;
+  };
   feedback: { rating: number; comment: string | null; submittedAt: string } | null;
-  rescheduleRequest: { requestedWindowStart: string; requestedWindowEnd: string; requestedAt: string } | null;
+  rescheduleRequest: {
+    requestedWindowStart: string;
+    requestedWindowEnd: string;
+    requestedAt: string;
+  } | null;
   timeline: Array<{ type: string; occurredAt: string }>;
 }
 
-const request = async <T>(
-  path: string,
-  init?: RequestInit,
-): Promise<T> => {
+const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...init,
     headers: {
@@ -114,7 +120,9 @@ const request = async <T>(
     } catch {
       // The status code remains enough context for a non-JSON failure.
     }
-    throw new Error(`${init?.method ?? 'GET'} ${path} returned ${response.status}${providerMessage}`);
+    throw new Error(
+      `${init?.method ?? 'GET'} ${path} returned ${response.status}${providerMessage}`,
+    );
   }
 
   return (await response.json()) as T;
@@ -144,10 +152,8 @@ const main = async (): Promise<void> => {
   assert.equal(readyResponse.status, 200, 'Backend readiness check must return HTTP 200');
   logStep('DynamoDB and S3 dependencies are ready');
 
-  const availableDrivers = await request<ApiEnvelope<Driver[]>>(
-    '/api/drivers?status=AVAILABLE',
-  );
-  const driver = availableDrivers.data[0] ?? await createAvailableDriver();
+  const availableDrivers = await request<ApiEnvelope<Driver[]>>('/api/drivers?status=AVAILABLE');
+  const driver = availableDrivers.data[0] ?? (await createAvailableDriver());
   assert.equal(driver.status, 'AVAILABLE');
   logStep(`Selected available driver ${driver.driverId}`);
 
@@ -183,20 +189,30 @@ const main = async (): Promise<void> => {
   const requestedEnd = new Date(Date.now() + 26 * 60 * 60_000).toISOString();
   const rescheduled = await request<ApiEnvelope<{ requestedWindowStart: string }>>(
     `/api/tracking/${trackingToken}/reschedule`,
-    { method: 'POST', body: JSON.stringify({ requestedWindowStart: requestedStart, requestedWindowEnd: requestedEnd, notes: 'Please deliver after reception opens' }) },
-  );
-  assert.equal(rescheduled.data.requestedWindowStart, requestedStart);
-  const issues = await request<ApiEnvelope<Array<{ type: string; orderId: string }>>>('/api/operations/issues');
-  assert.ok(issues.data.some((issue) => issue.type === 'CUSTOMER_RESCHEDULE_REQUEST' && issue.orderId === created.data.orderId));
-  logStep('Customer reschedule request appears in the operations exception queue');
-
-  const assigned = await request<ApiEnvelope<Order>>(
-    `/api/orders/${created.data.orderId}/assign`,
     {
-      method: 'PATCH',
-      body: JSON.stringify({ driverId: driver.driverId }),
+      method: 'POST',
+      body: JSON.stringify({
+        requestedWindowStart: requestedStart,
+        requestedWindowEnd: requestedEnd,
+        notes: 'Please deliver after reception opens',
+      }),
     },
   );
+  assert.equal(rescheduled.data.requestedWindowStart, requestedStart);
+  const issues =
+    await request<ApiEnvelope<Array<{ type: string; orderId: string }>>>('/api/operations/issues');
+  assert.ok(
+    issues.data.some(
+      (issue) =>
+        issue.type === 'CUSTOMER_RESCHEDULE_REQUEST' && issue.orderId === created.data.orderId,
+    ),
+  );
+  logStep('Customer reschedule request appears in the operations exception queue');
+
+  const assigned = await request<ApiEnvelope<Order>>(`/api/orders/${created.data.orderId}/assign`, {
+    method: 'PATCH',
+    body: JSON.stringify({ driverId: driver.driverId }),
+  });
   assert.equal(assigned.data.driverId, driver.driverId);
   assert.equal(assigned.data.status, 'ASSIGNED');
   logStep('Admin assigned the order to the driver');
@@ -212,13 +228,10 @@ const main = async (): Promise<void> => {
   });
   logStep('Driver published a fresh location near the destination');
 
-  const started = await request<ApiEnvelope<Order>>(
-    `/api/orders/${created.data.orderId}/status`,
-    {
-      method: 'PATCH',
-      body: JSON.stringify({ status: 'IN_PROGRESS' }),
-    },
-  );
+  const started = await request<ApiEnvelope<Order>>(`/api/orders/${created.data.orderId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'IN_PROGRESS' }),
+  });
   assert.equal(started.data.status, 'IN_PROGRESS');
   logStep('Admin started the delivery');
 
@@ -240,13 +253,10 @@ const main = async (): Promise<void> => {
   );
   logStep('Driver can read the assigned in-progress order');
 
-  const arrived = await request<ApiEnvelope<Order>>(
-    `/api/orders/${created.data.orderId}/status`,
-    {
-      method: 'PATCH',
-      body: JSON.stringify({ status: 'ARRIVED' }),
-    },
-  );
+  const arrived = await request<ApiEnvelope<Order>>(`/api/orders/${created.data.orderId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'ARRIVED' }),
+  });
   assert.equal(arrived.data.status, 'ARRIVED');
   logStep('Driver recorded arrival before collecting proof');
 
@@ -267,9 +277,7 @@ const main = async (): Promise<void> => {
   });
   if (!uploadResponse.ok) {
     const storageMessage = await uploadResponse.text();
-    throw new Error(
-      `Proof upload returned HTTP ${uploadResponse.status}: ${storageMessage}`,
-    );
+    throw new Error(`Proof upload returned HTTP ${uploadResponse.status}: ${storageMessage}`);
   }
   logStep('Driver uploaded proof directly to S3-compatible storage');
 
@@ -317,17 +325,21 @@ const main = async (): Promise<void> => {
   assert.ok(deliveredTracking.data.timeline.some((event) => event.type === 'DELIVERY_COMPLETED'));
   logStep('Customer sees delivery completion and Proof of Delivery confirmation');
 
-  const feedback = await request<ApiEnvelope<{ rating: number }>>(`/api/tracking/${trackingToken}/feedback`, {
-    method: 'POST', body: JSON.stringify({ rating: 5, comment: 'Delivered with care' }),
-  });
+  const feedback = await request<ApiEnvelope<{ rating: number }>>(
+    `/api/tracking/${trackingToken}/feedback`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ rating: 5, comment: 'Delivered with care' }),
+    },
+  );
   assert.equal(feedback.data.rating, 5);
-  const trackingWithFeedback = await request<ApiEnvelope<PublicTracking>>(`/api/tracking/${trackingToken}`);
+  const trackingWithFeedback = await request<ApiEnvelope<PublicTracking>>(
+    `/api/tracking/${trackingToken}`,
+  );
   assert.equal(trackingWithFeedback.data.feedback?.rating, 5);
   logStep('Customer submitted a verified post-delivery rating');
 
-  const driverAfterDelivery = await request<ApiEnvelope<Driver>>(
-    `/api/drivers/${driver.driverId}`,
-  );
+  const driverAfterDelivery = await request<ApiEnvelope<Driver>>(`/api/drivers/${driver.driverId}`);
   assert.equal(driverAfterDelivery.data.status, 'AVAILABLE');
   logStep('Delivery transaction returned the driver to AVAILABLE');
 

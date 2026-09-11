@@ -12,6 +12,8 @@
     "test": "npm run test:unit",
     "test:unit": "node --import tsx --test test/unit/*.test.ts",
     "test:integration": "node --import tsx --test test/integration/*.test.ts",
+    "test:coverage:backend": "c8 node --import tsx --test test/unit/*.test.ts",
+    "test:coverage": "npm run test:coverage:backend && npm --prefix frontend run test:coverage",
     "test:e2e": "npm run local:e2e",
     "test:local": "npm run local:up && npm run test:unit && npm run test:integration && npm run test:e2e",
     "infra:typecheck": "npm --prefix infra run typecheck",
@@ -29,7 +31,11 @@
     "perf:200": "USERS=200 k6 run load/k6/cloudfleet-baseline.js",
     "perf:500": "USERS=500 k6 run load/k6/cloudfleet-baseline.js",
     "perf:baseline": "K6_ENFORCE_THRESHOLDS=false npm run perf:50 && K6_ENFORCE_THRESHOLDS=false npm run perf:200 && K6_ENFORCE_THRESHOLDS=false npm run perf:500 && npm run perf:report",
-    "perf:report": "node scripts/generate-baseline-report.mjs"
+    "perf:report": "node scripts/generate-baseline-report.mjs",
+    "lint": "eslint . --max-warnings=0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "verify": "node scripts/verify.mjs"
   },
   "engines": {
     "node": ">=20"
@@ -53,12 +59,19 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/aws-lambda": "^8.10.0",
     "@types/cors": "^2.8.0",
     "@types/express": "^5.0.0",
     "@types/node": "^22.0.0",
     "@types/web-push": "^3.6.4",
+    "c8": "^12.0.0",
+    "eslint": "^10.10.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.12.0",
+    "prettier": "^3.9.6",
     "tsx": "^4.0.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.70.0"
   }
 }

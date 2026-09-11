@@ -3,10 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
-import {
-  DELIVERY_PROOF_BUCKET,
-  s3PresignClient,
-} from '../config/s3.js';
+import { DELIVERY_PROOF_BUCKET, s3PresignClient } from '../config/s3.js';
 import type { ProofContentType } from '../domain/entities/delivery-proof.js';
 
 const FILE_EXTENSIONS: Record<ProofContentType, string> = {

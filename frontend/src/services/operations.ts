@@ -21,26 +21,169 @@ import type { ApiEnvelope, DeliveryProof } from '../types/order';
 import type { TrackingLink } from '../types/tracking';
 import { runtimeEnv } from '../config/runtime';
 import { cloudFleetApi } from './api';
-import { cacheDriverOrders, getCachedDriverOrders, queueMutation, updateCachedOrder } from './offline-store';
+import {
+  cacheDriverOrders,
+  getCachedDriverOrders,
+  queueMutation,
+  updateCachedOrder,
+} from './offline-store';
 
-const mockFallbackEnabled =
-  runtimeEnv('VITE_ENABLE_MOCK_FALLBACK') === 'true';
+const mockFallbackEnabled = runtimeEnv('VITE_ENABLE_MOCK_FALLBACK') === 'true';
 
 let mockOrders: AdminOrder[] = [
-  { orderId: '0fe1212c-930a-47af-93a7-480ca0a3e771', customerName: 'Nguyễn Minh Anh', customerPhone: '+84901234567', dropoffAddress: '72 Nguyen Hue Street, District 1, Ho Chi Minh City', region: 'District 1', lat: 10.77428, lng: 106.70391, status: 'IN_PROGRESS', driverId: 'DRV-018', createdAt: '2026-08-24T02:45:00.000Z', deliveredAt: null, exception: null },
-  { orderId: '0c8e3c60-05b1-46de-a947-79aa26e67075', customerName: 'Trần Lan Anh', customerPhone: '+84912345678', dropoffAddress: '15 Vo Van Tan Street, District 3, Ho Chi Minh City', region: 'District 3', lat: 10.77712, lng: 106.68842, status: 'PENDING', driverId: null, createdAt: '2026-08-24T03:20:00.000Z', deliveredAt: null, exception: null },
-  { orderId: 'edccbd70-71f7-4b05-b2b5-dab54fb596d4', customerName: 'Lê Khánh Linh', customerPhone: '+84923456789', dropoffAddress: '82 Dien Bien Phu Street, Binh Thanh District, Ho Chi Minh City', region: 'Binh Thanh', lat: 10.80122, lng: 106.71014, status: 'PENDING', driverId: null, createdAt: '2026-08-24T03:10:00.000Z', deliveredAt: null, exception: null },
-  { orderId: '20dcfe10-c53c-4d87-b521-23b75ceaff71', customerName: 'Phạm Tuấn Kiệt', customerPhone: '+84934567890', dropoffAddress: '21 Mai Chi Tho Street, Thu Duc City, Ho Chi Minh City', region: 'Thu Duc', lat: 10.78752, lng: 106.74915, status: 'ASSIGNED', driverId: 'DRV-026', createdAt: '2026-08-24T02:55:00.000Z', deliveredAt: null, exception: null },
-  { orderId: 'f2d6e07d-a558-4026-9f2d-6fa637e097d3', customerName: 'Đỗ Bảo Ngọc', customerPhone: '+84945678901', dropoffAddress: '119 Lam Van Ben Street, District 7, Ho Chi Minh City', region: 'District 7', lat: 10.7391, lng: 106.7131, status: 'DELIVERED', driverId: 'DRV-011', createdAt: '2026-08-24T01:32:00.000Z', deliveredAt: '2026-08-24T02:06:00.000Z', exception: null },
-  { orderId: '62fcb4ad-1079-437b-a837-87dd2a7ea113', customerName: 'Vũ Quốc Bảo', customerPhone: '+84956789012', dropoffAddress: '82 Nguyen Van Troi Street, Phu Nhuan District, Ho Chi Minh City', region: 'Phu Nhuan', lat: 10.7962, lng: 106.6732, status: 'DELIVERED', driverId: 'DRV-018', createdAt: '2026-08-24T01:10:00.000Z', deliveredAt: '2026-08-24T01:48:00.000Z', exception: null },
-  { orderId: 'b5a314f0-bba4-4eaf-b88b-cdb4479632fb', customerName: 'Mai Thu Hà', customerPhone: '+84967890123', dropoffAddress: '2 Le Duan Boulevard, District 1, Ho Chi Minh City', region: 'District 1', lat: 10.78191, lng: 106.69925, status: 'ASSIGNED', driverId: 'DRV-018', createdAt: '2026-09-10T00:45:00.000Z', deliveredAt: null, exception: null },
+  {
+    orderId: '0fe1212c-930a-47af-93a7-480ca0a3e771',
+    customerName: 'Nguyễn Minh Anh',
+    customerPhone: '+84901234567',
+    dropoffAddress: '72 Nguyen Hue Street, District 1, Ho Chi Minh City',
+    region: 'District 1',
+    lat: 10.77428,
+    lng: 106.70391,
+    status: 'IN_PROGRESS',
+    driverId: 'DRV-018',
+    createdAt: '2026-08-24T02:45:00.000Z',
+    deliveredAt: null,
+    exception: null,
+  },
+  {
+    orderId: '0c8e3c60-05b1-46de-a947-79aa26e67075',
+    customerName: 'Trần Lan Anh',
+    customerPhone: '+84912345678',
+    dropoffAddress: '15 Vo Van Tan Street, District 3, Ho Chi Minh City',
+    region: 'District 3',
+    lat: 10.77712,
+    lng: 106.68842,
+    status: 'PENDING',
+    driverId: null,
+    createdAt: '2026-08-24T03:20:00.000Z',
+    deliveredAt: null,
+    exception: null,
+  },
+  {
+    orderId: 'edccbd70-71f7-4b05-b2b5-dab54fb596d4',
+    customerName: 'Lê Khánh Linh',
+    customerPhone: '+84923456789',
+    dropoffAddress: '82 Dien Bien Phu Street, Binh Thanh District, Ho Chi Minh City',
+    region: 'Binh Thanh',
+    lat: 10.80122,
+    lng: 106.71014,
+    status: 'PENDING',
+    driverId: null,
+    createdAt: '2026-08-24T03:10:00.000Z',
+    deliveredAt: null,
+    exception: null,
+  },
+  {
+    orderId: '20dcfe10-c53c-4d87-b521-23b75ceaff71',
+    customerName: 'Phạm Tuấn Kiệt',
+    customerPhone: '+84934567890',
+    dropoffAddress: '21 Mai Chi Tho Street, Thu Duc City, Ho Chi Minh City',
+    region: 'Thu Duc',
+    lat: 10.78752,
+    lng: 106.74915,
+    status: 'ASSIGNED',
+    driverId: 'DRV-026',
+    createdAt: '2026-08-24T02:55:00.000Z',
+    deliveredAt: null,
+    exception: null,
+  },
+  {
+    orderId: 'f2d6e07d-a558-4026-9f2d-6fa637e097d3',
+    customerName: 'Đỗ Bảo Ngọc',
+    customerPhone: '+84945678901',
+    dropoffAddress: '119 Lam Van Ben Street, District 7, Ho Chi Minh City',
+    region: 'District 7',
+    lat: 10.7391,
+    lng: 106.7131,
+    status: 'DELIVERED',
+    driverId: 'DRV-011',
+    createdAt: '2026-08-24T01:32:00.000Z',
+    deliveredAt: '2026-08-24T02:06:00.000Z',
+    exception: null,
+  },
+  {
+    orderId: '62fcb4ad-1079-437b-a837-87dd2a7ea113',
+    customerName: 'Vũ Quốc Bảo',
+    customerPhone: '+84956789012',
+    dropoffAddress: '82 Nguyen Van Troi Street, Phu Nhuan District, Ho Chi Minh City',
+    region: 'Phu Nhuan',
+    lat: 10.7962,
+    lng: 106.6732,
+    status: 'DELIVERED',
+    driverId: 'DRV-018',
+    createdAt: '2026-08-24T01:10:00.000Z',
+    deliveredAt: '2026-08-24T01:48:00.000Z',
+    exception: null,
+  },
+  {
+    orderId: 'b5a314f0-bba4-4eaf-b88b-cdb4479632fb',
+    customerName: 'Mai Thu Hà',
+    customerPhone: '+84967890123',
+    dropoffAddress: '2 Le Duan Boulevard, District 1, Ho Chi Minh City',
+    region: 'District 1',
+    lat: 10.78191,
+    lng: 106.69925,
+    status: 'ASSIGNED',
+    driverId: 'DRV-018',
+    createdAt: '2026-09-10T00:45:00.000Z',
+    deliveredAt: null,
+    exception: null,
+  },
 ];
 
 let mockDrivers: FleetDriver[] = [
-  { driverId: 'DRV-018', name: 'Minh Duy', phone: '+84901110018', vehiclePlate: '51A-482.17', currentArea: 'District 1', status: 'ON_DELIVERY', completedToday: 8, lat: 10.7738, lng: 106.7018, locationUpdatedAt: '2026-08-24T03:12:00.000Z', updatedAt: '2026-08-24T03:12:00.000Z' },
-  { driverId: 'DRV-026', name: 'Hải Nam', phone: '+84901110026', vehiclePlate: '59C-318.42', currentArea: 'Thu Duc', status: 'ON_DELIVERY', completedToday: 6, lat: 10.7881, lng: 106.7461, locationUpdatedAt: '2026-08-24T03:08:00.000Z', updatedAt: '2026-08-24T03:08:00.000Z' },
-  { driverId: 'DRV-011', name: 'Thanh An', phone: '+84901110011', vehiclePlate: '50H-921.06', currentArea: 'District 7', status: 'AVAILABLE', completedToday: 7, lat: 10.7398, lng: 106.7122, locationUpdatedAt: '2026-08-24T03:02:00.000Z', updatedAt: '2026-08-24T03:02:00.000Z' },
-  { driverId: 'DRV-032', name: 'Hoàng Sơn', phone: '+84901110032', vehiclePlate: '51D-104.38', currentArea: 'Binh Thanh', status: 'OFFLINE', completedToday: 0, lat: null, lng: null, locationUpdatedAt: null, updatedAt: '2026-08-24T01:14:00.000Z' },
+  {
+    driverId: 'DRV-018',
+    name: 'Minh Duy',
+    phone: '+84901110018',
+    vehiclePlate: '51A-482.17',
+    currentArea: 'District 1',
+    status: 'ON_DELIVERY',
+    completedToday: 8,
+    lat: 10.7738,
+    lng: 106.7018,
+    locationUpdatedAt: '2026-08-24T03:12:00.000Z',
+    updatedAt: '2026-08-24T03:12:00.000Z',
+  },
+  {
+    driverId: 'DRV-026',
+    name: 'Hải Nam',
+    phone: '+84901110026',
+    vehiclePlate: '59C-318.42',
+    currentArea: 'Thu Duc',
+    status: 'ON_DELIVERY',
+    completedToday: 6,
+    lat: 10.7881,
+    lng: 106.7461,
+    locationUpdatedAt: '2026-08-24T03:08:00.000Z',
+    updatedAt: '2026-08-24T03:08:00.000Z',
+  },
+  {
+    driverId: 'DRV-011',
+    name: 'Thanh An',
+    phone: '+84901110011',
+    vehiclePlate: '50H-921.06',
+    currentArea: 'District 7',
+    status: 'AVAILABLE',
+    completedToday: 7,
+    lat: 10.7398,
+    lng: 106.7122,
+    locationUpdatedAt: '2026-08-24T03:02:00.000Z',
+    updatedAt: '2026-08-24T03:02:00.000Z',
+  },
+  {
+    driverId: 'DRV-032',
+    name: 'Hoàng Sơn',
+    phone: '+84901110032',
+    vehiclePlate: '51D-104.38',
+    currentArea: 'Binh Thanh',
+    status: 'OFFLINE',
+    completedToday: 0,
+    lat: null,
+    lng: null,
+    locationUpdatedAt: null,
+    updatedAt: '2026-08-24T01:14:00.000Z',
+  },
 ];
 
 const canUseFallback = (error: unknown): boolean => {
@@ -83,12 +226,17 @@ export const getOrder = async (orderId: string): Promise<DataResult<AdminOrder>>
     const response = await cloudFleetApi.get<ApiEnvelope<AdminOrder>>(`/api/orders/${orderId}`);
     return { data: response.data.data, isFallback: false };
   } catch (error: unknown) {
-    return fallbackOrThrow(error, () => mockOrders.find((order) => order.orderId === orderId) ?? mockOrders[0]!);
+    return fallbackOrThrow(
+      error,
+      () => mockOrders.find((order) => order.orderId === orderId) ?? mockOrders[0]!,
+    );
   }
 };
 
 export const getOrderEvents = async (orderId: string): Promise<OrderEvent[]> => {
-  const response = await cloudFleetApi.get<ApiEnvelope<OrderEvent[]>>(`/api/orders/${orderId}/events`);
+  const response = await cloudFleetApi.get<ApiEnvelope<OrderEvent[]>>(
+    `/api/orders/${orderId}/events`,
+  );
   return response.data.data;
 };
 
@@ -100,31 +248,64 @@ export const getOrderTrackingLink = async (orderId: string): Promise<TrackingLin
 };
 
 export const getDeliveryProof = async (orderId: string): Promise<DeliveryProof> => {
-  const response = await cloudFleetApi.get<ApiEnvelope<DeliveryProof>>(`/api/orders/${orderId}/proof`);
+  const response = await cloudFleetApi.get<ApiEnvelope<DeliveryProof>>(
+    `/api/orders/${orderId}/proof`,
+  );
   return response.data.data;
 };
 
 export const getDeliveryProofViewUrl = async (orderId: string): Promise<ProofViewUrl> => {
-  const response = await cloudFleetApi.get<ApiEnvelope<ProofViewUrl>>(`/api/orders/${orderId}/proof/view-url`);
+  const response = await cloudFleetApi.get<ApiEnvelope<ProofViewUrl>>(
+    `/api/orders/${orderId}/proof/view-url`,
+  );
   return response.data.data;
 };
 
-export const createOrder = async (input: Pick<AdminOrder, 'customerName' | 'customerPhone' | 'dropoffAddress' | 'region' | 'lat' | 'lng'> & Partial<Pick<AdminOrder, 'timeWindowStart' | 'timeWindowEnd' | 'packageWeightKg' | 'packageVolumeM3' | 'serviceDurationMinutes'>> & { driverId?: string | null }): Promise<DataResult<AdminOrder>> => {
+export const createOrder = async (
+  input: Pick<
+    AdminOrder,
+    'customerName' | 'customerPhone' | 'dropoffAddress' | 'region' | 'lat' | 'lng'
+  > &
+    Partial<
+      Pick<
+        AdminOrder,
+        | 'timeWindowStart'
+        | 'timeWindowEnd'
+        | 'packageWeightKg'
+        | 'packageVolumeM3'
+        | 'serviceDurationMinutes'
+      >
+    > & { driverId?: string | null },
+): Promise<DataResult<AdminOrder>> => {
   try {
     const response = await cloudFleetApi.post<ApiEnvelope<AdminOrder>>('/api/orders', input);
     return { data: response.data.data, isFallback: false };
   } catch (error: unknown) {
     return fallbackOrThrow(error, () => {
-      const order: AdminOrder = { orderId: crypto.randomUUID(), ...input, driverId: input.driverId ?? null, status: input.driverId ? 'ASSIGNED' : 'PENDING', createdAt: new Date().toISOString(), deliveredAt: null, exception: null };
+      const order: AdminOrder = {
+        orderId: crypto.randomUUID(),
+        ...input,
+        driverId: input.driverId ?? null,
+        status: input.driverId ? 'ASSIGNED' : 'PENDING',
+        createdAt: new Date().toISOString(),
+        deliveredAt: null,
+        exception: null,
+      };
       mockOrders = [order, ...mockOrders];
       return order;
     });
   }
 };
 
-export const assignOrder = async (orderId: string, driverId: string): Promise<DataResult<AdminOrder>> => {
+export const assignOrder = async (
+  orderId: string,
+  driverId: string,
+): Promise<DataResult<AdminOrder>> => {
   try {
-    const response = await cloudFleetApi.patch<ApiEnvelope<AdminOrder>>(`/api/orders/${orderId}/assign`, { driverId });
+    const response = await cloudFleetApi.patch<ApiEnvelope<AdminOrder>>(
+      `/api/orders/${orderId}/assign`,
+      { driverId },
+    );
     return { data: response.data.data, isFallback: false };
   } catch (error: unknown) {
     return fallbackOrThrow(error, () => {
@@ -132,7 +313,7 @@ export const assignOrder = async (orderId: string, driverId: string): Promise<Da
       const current = mockOrders[index];
       if (!current) throw new Error('Mock order not found');
       const updated: AdminOrder = { ...current, driverId, status: 'ASSIGNED', exception: null };
-      mockOrders = mockOrders.map((order) => order.orderId === orderId ? updated : order);
+      mockOrders = mockOrders.map((order) => (order.orderId === orderId ? updated : order));
       mockDrivers = mockDrivers.map((driver) =>
         driver.driverId === driverId
           ? { ...driver, status: 'ON_DELIVERY', updatedAt: new Date().toISOString() }
@@ -150,7 +331,10 @@ export const updateOrderStatus = async (
   offlineDriverId?: string,
 ): Promise<DataResult<AdminOrder>> => {
   try {
-    const response = await cloudFleetApi.patch<ApiEnvelope<AdminOrder>>(`/api/orders/${orderId}/status`, { status, ...exception });
+    const response = await cloudFleetApi.patch<ApiEnvelope<AdminOrder>>(
+      `/api/orders/${orderId}/status`,
+      { status, ...exception },
+    );
     return { data: response.data.data, isFallback: false };
   } catch (error: unknown) {
     if (offlineDriverId && isNetworkFailure(error)) {
@@ -162,9 +346,21 @@ export const updateOrderStatus = async (
           ...current,
           status,
           deliveredAt: status === 'DELIVERED' ? now : current.deliveredAt,
-          exception: exception ? { reason: exception.reason, notes: exception.notes ?? null, reportedAt: now, reportedBy: offlineDriverId } : current.exception,
+          exception: exception
+            ? {
+                reason: exception.reason,
+                notes: exception.notes ?? null,
+                reportedAt: now,
+                reportedBy: offlineDriverId,
+              }
+            : current.exception,
         };
-        await queueMutation({ method: 'PATCH', path: `/api/orders/${orderId}/status`, body: { status, ...exception }, idempotencyKey: crypto.randomUUID() });
+        await queueMutation({
+          method: 'PATCH',
+          path: `/api/orders/${orderId}/status`,
+          body: { status, ...exception },
+          idempotencyKey: crypto.randomUUID(),
+        });
         await updateCachedOrder(offlineDriverId, updated);
         return { data: updated, isFallback: true, isQueued: true };
       }
@@ -178,14 +374,24 @@ export const updateOrderStatus = async (
         status,
         deliveredAt: status === 'DELIVERED' ? now : current.deliveredAt,
         exception: exception
-          ? { reason: exception.reason, notes: exception.notes ?? null, reportedAt: now, reportedBy: 'mock-user' }
+          ? {
+              reason: exception.reason,
+              notes: exception.notes ?? null,
+              reportedAt: now,
+              reportedBy: 'mock-user',
+            }
           : current.exception,
       };
-      mockOrders = mockOrders.map((order) => order.orderId === orderId ? updated : order);
+      mockOrders = mockOrders.map((order) => (order.orderId === orderId ? updated : order));
       if (status === 'DELIVERED' && current.driverId) {
         mockDrivers = mockDrivers.map((driver) =>
           driver.driverId === current.driverId
-            ? { ...driver, status: 'AVAILABLE', completedToday: driver.completedToday + 1, updatedAt: new Date().toISOString() }
+            ? {
+                ...driver,
+                status: 'AVAILABLE',
+                completedToday: driver.completedToday + 1,
+                updatedAt: new Date().toISOString(),
+              }
             : driver,
         );
       }
@@ -196,10 +402,14 @@ export const updateOrderStatus = async (
 
 export const listDrivers = async (status?: DriverStatus): Promise<DataResult<FleetDriver[]>> => {
   try {
-    const response = await cloudFleetApi.get<ApiEnvelope<FleetDriver[]>>('/api/drivers', { params: { status } });
+    const response = await cloudFleetApi.get<ApiEnvelope<FleetDriver[]>>('/api/drivers', {
+      params: { status },
+    });
     return { data: response.data.data, isFallback: false };
   } catch (error: unknown) {
-    return fallbackOrThrow(error, () => mockDrivers.filter((driver) => !status || driver.status === status));
+    return fallbackOrThrow(error, () =>
+      mockDrivers.filter((driver) => !status || driver.status === status),
+    );
   }
 };
 
@@ -208,17 +418,32 @@ export const getDriver = async (driverId: string): Promise<DataResult<FleetDrive
     const response = await cloudFleetApi.get<ApiEnvelope<FleetDriver>>(`/api/drivers/${driverId}`);
     return { data: response.data.data, isFallback: false };
   } catch (error: unknown) {
-    return fallbackOrThrow(error, () => mockDrivers.find((driver) => driver.driverId === driverId) ?? mockDrivers[0]!);
+    return fallbackOrThrow(
+      error,
+      () => mockDrivers.find((driver) => driver.driverId === driverId) ?? mockDrivers[0]!,
+    );
   }
 };
 
-export const createDriver = async (input: Pick<FleetDriver, 'name' | 'phone' | 'vehiclePlate' | 'currentArea'> & Partial<Pick<FleetDriver, 'maxWeightKg' | 'maxVolumeM3'>>): Promise<DataResult<FleetDriver>> => {
+export const createDriver = async (
+  input: Pick<FleetDriver, 'name' | 'phone' | 'vehiclePlate' | 'currentArea'> &
+    Partial<Pick<FleetDriver, 'maxWeightKg' | 'maxVolumeM3'>>,
+): Promise<DataResult<FleetDriver>> => {
   try {
     const response = await cloudFleetApi.post<ApiEnvelope<FleetDriver>>('/api/drivers', input);
     return { data: response.data.data, isFallback: false };
   } catch (error: unknown) {
     return fallbackOrThrow(error, () => {
-      const driver: FleetDriver = { driverId: `DRV-${String(mockDrivers.length + 40).padStart(3, '0')}`, ...input, status: 'AVAILABLE', completedToday: 0, lat: null, lng: null, locationUpdatedAt: null, updatedAt: new Date().toISOString() };
+      const driver: FleetDriver = {
+        driverId: `DRV-${String(mockDrivers.length + 40).padStart(3, '0')}`,
+        ...input,
+        status: 'AVAILABLE',
+        completedToday: 0,
+        lat: null,
+        lng: null,
+        locationUpdatedAt: null,
+        updatedAt: new Date().toISOString(),
+      };
       mockDrivers = [driver, ...mockDrivers];
       return driver;
     });
@@ -226,15 +451,21 @@ export const createDriver = async (input: Pick<FleetDriver, 'name' | 'phone' | '
 };
 
 export const importOrdersCsv = async (file: File): Promise<CsvImportResult> => {
-  const response = await cloudFleetApi.post<ApiEnvelope<CsvImportResult>>('/api/orders/import', file, {
-    headers: { 'Content-Type': 'text/csv' },
-    transformRequest: [(value) => value],
-  });
+  const response = await cloudFleetApi.post<ApiEnvelope<CsvImportResult>>(
+    '/api/orders/import',
+    file,
+    {
+      headers: { 'Content-Type': 'text/csv' },
+      transformRequest: [(value) => value],
+    },
+  );
   return response.data.data;
 };
 
 export const exportOrdersCsv = async (): Promise<void> => {
-  const response = await cloudFleetApi.get<Blob>('/api/orders/export.csv', { responseType: 'blob' });
+  const response = await cloudFleetApi.get<Blob>('/api/orders/export.csv', {
+    responseType: 'blob',
+  });
   const url = URL.createObjectURL(response.data);
   const link = document.createElement('a');
   link.href = url;
@@ -244,18 +475,25 @@ export const exportOrdersCsv = async (): Promise<void> => {
 };
 
 export const validateAddress = async (address: string): Promise<GeocodingCandidate[]> => {
-  const response = await cloudFleetApi.post<ApiEnvelope<{ valid: boolean; candidates: GeocodingCandidate[] }>>(
-    '/api/geocoding/validate', { address, countryCode: 'vn', limit: 3 },
-  );
+  const response = await cloudFleetApi.post<
+    ApiEnvelope<{ valid: boolean; candidates: GeocodingCandidate[] }>
+  >('/api/geocoding/validate', { address, countryCode: 'vn', limit: 3 });
   return response.data.data.candidates;
 };
 
-export const createRoute = async (input: { driverId: string; orderIds: string[]; scheduledDate: string }): Promise<DeliveryRoute> => {
+export const createRoute = async (input: {
+  driverId: string;
+  orderIds: string[];
+  scheduledDate: string;
+}): Promise<DeliveryRoute> => {
   const response = await cloudFleetApi.post<ApiEnvelope<DeliveryRoute>>('/api/routes', input);
   return response.data.data;
 };
 
-export const listRoutes = async (params?: { driverId?: string; limit?: number }): Promise<DeliveryRoute[]> => {
+export const listRoutes = async (params?: {
+  driverId?: string;
+  limit?: number;
+}): Promise<DeliveryRoute[]> => {
   const response = await cloudFleetApi.get<ApiEnvelope<DeliveryRoute[]>>('/api/routes', { params });
   return response.data.data;
 };
@@ -266,30 +504,45 @@ export const getRoute = async (routeId: string): Promise<DeliveryRoute> => {
 };
 
 export const reorderRoute = async (routeId: string, orderIds: string[]): Promise<DeliveryRoute> => {
-  const response = await cloudFleetApi.patch<ApiEnvelope<DeliveryRoute>>(`/api/routes/${routeId}/reorder`, { orderIds });
+  const response = await cloudFleetApi.patch<ApiEnvelope<DeliveryRoute>>(
+    `/api/routes/${routeId}/reorder`,
+    { orderIds },
+  );
   return response.data.data;
 };
 
 export const reoptimizeRoute = async (routeId: string): Promise<DeliveryRoute> => {
-  const response = await cloudFleetApi.post<ApiEnvelope<DeliveryRoute>>(`/api/routes/${routeId}/re-optimize`, {});
+  const response = await cloudFleetApi.post<ApiEnvelope<DeliveryRoute>>(
+    `/api/routes/${routeId}/re-optimize`,
+    {},
+  );
   return response.data.data;
 };
 
 export const listOperationalIssues = async (limit = 100): Promise<OperationalIssue[]> => {
-  const response = await cloudFleetApi.get<ApiEnvelope<OperationalIssue[]>>('/api/operations/issues', { params: { limit } });
+  const response = await cloudFleetApi.get<ApiEnvelope<OperationalIssue[]>>(
+    '/api/operations/issues',
+    { params: { limit } },
+  );
   return response.data.data;
 };
 
-export const updateDriverStatus = async (driverId: string, status: DriverStatus): Promise<DataResult<FleetDriver>> => {
+export const updateDriverStatus = async (
+  driverId: string,
+  status: DriverStatus,
+): Promise<DataResult<FleetDriver>> => {
   try {
-    const response = await cloudFleetApi.patch<ApiEnvelope<FleetDriver>>(`/api/drivers/${driverId}/status`, { status });
+    const response = await cloudFleetApi.patch<ApiEnvelope<FleetDriver>>(
+      `/api/drivers/${driverId}/status`,
+      { status },
+    );
     return { data: response.data.data, isFallback: false };
   } catch (error: unknown) {
     return fallbackOrThrow(error, () => {
       const current = mockDrivers.find((driver) => driver.driverId === driverId);
       if (!current) throw new Error('Mock driver not found');
       const updated = { ...current, status, updatedAt: new Date().toISOString() };
-      mockDrivers = mockDrivers.map((driver) => driver.driverId === driverId ? updated : driver);
+      mockDrivers = mockDrivers.map((driver) => (driver.driverId === driverId ? updated : driver));
       return updated;
     });
   }
@@ -307,14 +560,23 @@ export const updateDriverLocation = async (
     return { data: response.data.data, isFallback: false };
   } catch (error: unknown) {
     if (isNetworkFailure(error)) {
-      await queueMutation({ method: 'PATCH', path: `/api/drivers/${driverId}/location`, body: input, idempotencyKey: crypto.randomUUID() });
-      return { data: {
-        driverId,
-        lat: input.lat,
-        lng: input.lng,
-        accuracy: input.accuracy ?? null,
-        recordedAt: input.recordedAt ?? new Date().toISOString(),
-      }, isFallback: true, isQueued: true };
+      await queueMutation({
+        method: 'PATCH',
+        path: `/api/drivers/${driverId}/location`,
+        body: input,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      return {
+        data: {
+          driverId,
+          lat: input.lat,
+          lng: input.lng,
+          accuracy: input.accuracy ?? null,
+          recordedAt: input.recordedAt ?? new Date().toISOString(),
+        },
+        isFallback: true,
+        isQueued: true,
+      };
     }
     return fallbackOrThrow(error, () => ({
       driverId,
@@ -340,11 +602,41 @@ const buildFallbackAnalytics = (params?: {
     Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000) + 1,
   );
   const profiles = [
-    { region: 'District 1', daily: 22, successRate: 97.4, averageDeliveryMinutes: 29, isAbnormal: false },
-    { region: 'District 3', daily: 18, successRate: 96.2, averageDeliveryMinutes: 33, isAbnormal: false },
-    { region: 'District 7', daily: 17, successRate: 96.9, averageDeliveryMinutes: 36, isAbnormal: false },
-    { region: 'Binh Thanh', daily: 21, successRate: 94.8, averageDeliveryMinutes: 39, isAbnormal: false },
-    { region: 'Thu Duc', daily: 24, successRate: 88.6, averageDeliveryMinutes: 52, isAbnormal: true },
+    {
+      region: 'District 1',
+      daily: 22,
+      successRate: 97.4,
+      averageDeliveryMinutes: 29,
+      isAbnormal: false,
+    },
+    {
+      region: 'District 3',
+      daily: 18,
+      successRate: 96.2,
+      averageDeliveryMinutes: 33,
+      isAbnormal: false,
+    },
+    {
+      region: 'District 7',
+      daily: 17,
+      successRate: 96.9,
+      averageDeliveryMinutes: 36,
+      isAbnormal: false,
+    },
+    {
+      region: 'Binh Thanh',
+      daily: 21,
+      successRate: 94.8,
+      averageDeliveryMinutes: 39,
+      isAbnormal: false,
+    },
+    {
+      region: 'Thu Duc',
+      daily: 24,
+      successRate: 88.6,
+      averageDeliveryMinutes: 52,
+      isAbnormal: true,
+    },
   ];
   const regions = profiles
     .map((profile, index) => {
@@ -352,7 +644,7 @@ const buildFallbackAnalytics = (params?: {
       return {
         region: profile.region,
         orderCount,
-        deliveredOrders: Math.round(orderCount * profile.successRate / 100),
+        deliveredOrders: Math.round((orderCount * profile.successRate) / 100),
         successRate: profile.successRate,
         averageDeliveryMinutes: profile.averageDeliveryMinutes,
         rankBySpeed: index + 1,
@@ -364,19 +656,22 @@ const buildFallbackAnalytics = (params?: {
   const selected = params?.region
     ? regions.find((region) => region.region === params.region)
     : null;
-  const totalOrders = selected?.orderCount ?? regions.reduce((sum, region) => sum + region.orderCount, 0);
-  const deliveredOrders = selected?.deliveredOrders ?? regions.reduce((sum, region) => sum + region.deliveredOrders, 0);
+  const totalOrders =
+    selected?.orderCount ?? regions.reduce((sum, region) => sum + region.orderCount, 0);
+  const deliveredOrders =
+    selected?.deliveredOrders ?? regions.reduce((sum, region) => sum + region.deliveredOrders, 0);
   const averageDeliveryMinutes = selected?.averageDeliveryMinutes ?? 38;
-  const successRate = totalOrders === 0 ? 0 : Math.round(deliveredOrders / totalOrders * 10_000) / 100;
+  const successRate =
+    totalOrders === 0 ? 0 : Math.round((deliveredOrders / totalOrders) * 10_000) / 100;
   const deliveryVolumeTrend = Array.from({ length: days }, (_, index) => {
     const date = new Date(`${from}T00:00:00.000Z`);
     date.setUTCDate(date.getUTCDate() + index);
-    const wave = 0.84 + Math.sin(index * 0.72) * 0.13 + index / Math.max(1, days) * 0.18;
-    const orderCount = Math.max(1, Math.round(totalOrders / days * wave));
+    const wave = 0.84 + Math.sin(index * 0.72) * 0.13 + (index / Math.max(1, days)) * 0.18;
+    const orderCount = Math.max(1, Math.round((totalOrders / days) * wave));
     return {
       date: date.toISOString().slice(0, 10),
       orderCount,
-      deliveredOrders: Math.round(orderCount * successRate / 100),
+      deliveredOrders: Math.round((orderCount * successRate) / 100),
     };
   });
   const previousTotal = Math.round(totalOrders / 1.064);
@@ -404,7 +699,9 @@ const buildFallbackAnalytics = (params?: {
       previous: {
         totalOrders: previousTotal,
         deliveredOrders: previousDelivered,
-        successRate: previousTotal ? Math.round(previousDelivered / previousTotal * 10_000) / 100 : 0,
+        successRate: previousTotal
+          ? Math.round((previousDelivered / previousTotal) * 10_000) / 100
+          : 0,
         averageDeliveryMinutes: previousAverage,
       },
       totalOrdersChangePercent: 6.4,
@@ -415,7 +712,13 @@ const buildFallbackAnalytics = (params?: {
     deliveryVolumeTrend,
     hourlyOrderVolume: Array.from({ length: 24 }, (_, hour) => ({
       hour,
-      orderCount: Math.round(totalOrders * ([0.004, 0.002, 0.002, 0.002, 0.003, 0.006, 0.012, 0.025, 0.055, 0.08, 0.09, 0.085, 0.07, 0.075, 0.09, 0.1, 0.11, 0.105, 0.075, 0.045, 0.025, 0.015, 0.01, 0.007][hour] ?? 0)),
+      orderCount: Math.round(
+        totalOrders *
+          ([
+            0.004, 0.002, 0.002, 0.002, 0.003, 0.006, 0.012, 0.025, 0.055, 0.08, 0.09, 0.085, 0.07,
+            0.075, 0.09, 0.1, 0.11, 0.105, 0.075, 0.045, 0.025, 0.015, 0.01, 0.007,
+          ][hour] ?? 0),
+      ),
     })),
     regions,
   };
@@ -439,9 +742,7 @@ export const getAnalyticsOverview = async (params?: {
 
 /** Starts the AWS Step Functions workflow; intentionally has no mock fallback. */
 export const startAnalyticsRun = async (): Promise<AnalyticsRun> => {
-  const response = await cloudFleetApi.post<ApiEnvelope<AnalyticsRun>>(
-    '/api/analytics/runs',
-  );
+  const response = await cloudFleetApi.post<ApiEnvelope<AnalyticsRun>>('/api/analytics/runs');
   return response.data.data;
 };
 

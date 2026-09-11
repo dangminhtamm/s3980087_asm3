@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { updateDriverLocation } from '../services/operations';
 
-export type TrackingStatus = 'idle' | 'requesting' | 'tracking' | 'denied' | 'unsupported' | 'error';
+export type TrackingStatus =
+  'idle' | 'requesting' | 'tracking' | 'denied' | 'unsupported' | 'error';
 
 interface TrackedLocation {
   lat: number;

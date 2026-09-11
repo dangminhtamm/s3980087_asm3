@@ -4,8 +4,7 @@ import { ApiGatewayManagementApiClient } from '@aws-sdk/client-apigatewaymanagem
 
 const managementEndpoint = process.env.WEBSOCKET_MANAGEMENT_ENDPOINT?.trim();
 
-export const WEBSOCKET_PUBLIC_URL =
-  process.env.WEBSOCKET_PUBLIC_URL?.trim() || null;
+export const WEBSOCKET_PUBLIC_URL = process.env.WEBSOCKET_PUBLIC_URL?.trim() || null;
 
 /** Undefined locally: location writes still succeed, but broadcasting is off. */
 export const webSocketManagementClient = managementEndpoint

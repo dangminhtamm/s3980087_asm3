@@ -20,22 +20,28 @@ for (const vus of profiles) {
   }
 }
 
-const round = (value, digits = 1) => typeof value === 'number' ? value.toFixed(digits) : 'n/a';
+const round = (value, digits = 1) => (typeof value === 'number' ? value.toFixed(digits) : 'n/a');
 const p95 = (report, metric) => report.metrics[metric]?.values?.['p(95)'] ?? null;
-const profileRows = loaded.map((report) =>
-  `| ${report.profile.vus} | ${round(report.summary.throughputRps)} | ${round(report.summary.httpP95Ms)} | ${round((report.summary.errorRate ?? 0) * 100, 2)}% |`,
-).join('\n');
+const profileRows = loaded
+  .map(
+    (report) =>
+      `| ${report.profile.vus} | ${round(report.summary.throughputRps)} | ${round(report.summary.httpP95Ms)} | ${round((report.summary.errorRate ?? 0) * 100, 2)}% |`,
+  )
+  .join('\n');
 
 const highest = loaded.at(-1);
 const slowest = Object.entries(flowMetrics)
   .map(([flow, metric]) => ({ flow, value: p95(highest, metric) }))
   .sort((left, right) => (right.value ?? -1) - (left.value ?? -1));
-const slowRows = slowest.map(({ flow, value }, index) =>
-  `| ${index + 1} | \`${flow}\` | ${round(value)} |`,
-).join('\n');
-const allFlowRows = Object.entries(flowMetrics).map(([flow, metric]) =>
-  `| \`${flow}\` | ${loaded.map((report) => round(p95(report, metric))).join(' | ')} |`,
-).join('\n');
+const slowRows = slowest
+  .map(({ flow, value }, index) => `| ${index + 1} | \`${flow}\` | ${round(value)} |`)
+  .join('\n');
+const allFlowRows = Object.entries(flowMetrics)
+  .map(
+    ([flow, metric]) =>
+      `| \`${flow}\` | ${loaded.map((report) => round(p95(report, metric))).join(' | ')} |`,
+  )
+  .join('\n');
 const generatedAt = new Date().toISOString();
 
 const report = `# CloudFleet performance baseline

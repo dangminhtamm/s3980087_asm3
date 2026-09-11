@@ -7,7 +7,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "presynth": "npm --prefix ../frontend run build",
-    "synth": "cdk synth --no-lookups",
+    "synth": "cdk synth --no-lookups --quiet",
     "prediff": "npm --prefix ../frontend run build",
     "diff": "cdk diff",
     "bootstrap": "cdk bootstrap",

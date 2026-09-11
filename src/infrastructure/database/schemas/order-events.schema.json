@@ -37,6 +37,16 @@
       "additionalProperties": { "type": "string" }
     }
   },
-  "required": ["PK", "SK", "eventId", "orderId", "type", "occurredAt", "actorId", "source", "metadata"],
+  "required": [
+    "PK",
+    "SK",
+    "eventId",
+    "orderId",
+    "type",
+    "occurredAt",
+    "actorId",
+    "source",
+    "metadata"
+  ],
   "x-access-pattern": "PK = ORDER#<orderId> AND begins_with(SK, EVENT#), ascending"
 }

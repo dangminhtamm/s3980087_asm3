@@ -37,19 +37,34 @@ export class DeliveryProofService {
     const startedAt = process.hrtime.bigint();
     try {
       const proof = await this.performRegistration(orderId, input, uploadedBy);
-      emitMetrics([
-        { name: 'ProofRegisterDuration', value: durationMsSince(startedAt), unit: 'Milliseconds' },
-        { name: 'ProofRegisterCount', value: 1, unit: 'Count' },
-      ], { Outcome: 'success' });
+      emitMetrics(
+        [
+          {
+            name: 'ProofRegisterDuration',
+            value: durationMsSince(startedAt),
+            unit: 'Milliseconds',
+          },
+          { name: 'ProofRegisterCount', value: 1, unit: 'Count' },
+        ],
+        { Outcome: 'success' },
+      );
       return proof;
     } catch (error: unknown) {
-      emitMetrics([
-        { name: 'ProofRegisterDuration', value: durationMsSince(startedAt), unit: 'Milliseconds' },
-        { name: 'ProofRegisterCount', value: 1, unit: 'Count' },
-        { name: 'ProofRegisterErrorCount', value: 1, unit: 'Count' },
-      ], { Outcome: 'error' }, {
-        errorName: error instanceof Error ? error.name : 'UnknownError',
-      });
+      emitMetrics(
+        [
+          {
+            name: 'ProofRegisterDuration',
+            value: durationMsSince(startedAt),
+            unit: 'Milliseconds',
+          },
+          { name: 'ProofRegisterCount', value: 1, unit: 'Count' },
+          { name: 'ProofRegisterErrorCount', value: 1, unit: 'Count' },
+        ],
+        { Outcome: 'error' },
+        {
+          errorName: error instanceof Error ? error.name : 'UnknownError',
+        },
+      );
       throw error;
     }
   }
@@ -78,20 +93,34 @@ export class DeliveryProofService {
           Key: input.objectKey,
         }),
       );
-      emitMetrics([{ name: 'S3ProofVerifyDuration', value: durationMsSince(verifyStartedAt), unit: 'Milliseconds' }], {
-        Outcome: 'success',
-      });
+      emitMetrics(
+        [
+          {
+            name: 'S3ProofVerifyDuration',
+            value: durationMsSince(verifyStartedAt),
+            unit: 'Milliseconds',
+          },
+        ],
+        {
+          Outcome: 'success',
+        },
+      );
     } catch (error: unknown) {
-      emitMetrics([
-        { name: 'S3ProofVerifyDuration', value: durationMsSince(verifyStartedAt), unit: 'Milliseconds' },
-        { name: 'S3ProofVerifyErrorCount', value: 1, unit: 'Count' },
-      ], { Outcome: 'error' }, {
-        errorName: error instanceof Error ? error.name : 'UnknownError',
-      });
-      if (
-        error instanceof Error &&
-        ['NotFound', 'NoSuchKey', 'Forbidden'].includes(error.name)
-      ) {
+      emitMetrics(
+        [
+          {
+            name: 'S3ProofVerifyDuration',
+            value: durationMsSince(verifyStartedAt),
+            unit: 'Milliseconds',
+          },
+          { name: 'S3ProofVerifyErrorCount', value: 1, unit: 'Count' },
+        ],
+        { Outcome: 'error' },
+        {
+          errorName: error instanceof Error ? error.name : 'UnknownError',
+        },
+      );
+      if (error instanceof Error && ['NotFound', 'NoSuchKey', 'Forbidden'].includes(error.name)) {
         throw new AppError(
           409,
           'The proof image is not available in storage',
@@ -144,16 +173,31 @@ export class DeliveryProofService {
       ...proof,
     };
 
-    await this.database.send(new TransactWriteCommand({ TransactItems: [
-      { Put: { TableName: this.tableName, Item: item } },
-      { Put: { TableName: this.tableName, Item: createOrderEventItem({ orderId, type: 'PROOF_UPLOADED', occurredAt: proof.uploadedAt, actorId: uploadedBy, metadata: {
-        objectKey: proof.objectKey,
-        contentType: proof.contentType,
-        signatureCaptured: String(Boolean(proof.signatureDataUrl)),
-        barcodeCaptured: String(Boolean(proof.barcode)),
-        gpsCaptured: String(Boolean(proof.gps)),
-      } }) } },
-    ] }));
+    await this.database.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          { Put: { TableName: this.tableName, Item: item } },
+          {
+            Put: {
+              TableName: this.tableName,
+              Item: createOrderEventItem({
+                orderId,
+                type: 'PROOF_UPLOADED',
+                occurredAt: proof.uploadedAt,
+                actorId: uploadedBy,
+                metadata: {
+                  objectKey: proof.objectKey,
+                  contentType: proof.contentType,
+                  signatureCaptured: String(Boolean(proof.signatureDataUrl)),
+                  barcodeCaptured: String(Boolean(proof.barcode)),
+                  gpsCaptured: String(Boolean(proof.gps)),
+                },
+              }),
+            },
+          },
+        ],
+      }),
+    );
 
     return proof;
   }
@@ -168,11 +212,7 @@ export class DeliveryProofService {
     );
 
     if (!result.Item) {
-      throw new AppError(
-        404,
-        'Delivery proof not found',
-        'DELIVERY_PROOF_NOT_FOUND',
-      );
+      throw new AppError(404, 'Delivery proof not found', 'DELIVERY_PROOF_NOT_FOUND');
     }
 
     return this.toProof(result.Item);
@@ -215,7 +255,8 @@ export class DeliveryProofService {
       typeof (value as Record<string, unknown>).lat !== 'number' ||
       typeof (value as Record<string, unknown>).lng !== 'number' ||
       typeof (value as Record<string, unknown>).recordedAt !== 'string'
-    ) throw new Error('Stored delivery proof has invalid GPS data');
+    )
+      throw new Error('Stored delivery proof has invalid GPS data');
     const gps = value as Record<string, unknown>;
     return {
       lat: gps.lat as number,

@@ -5,8 +5,7 @@ import { runtimeEnv } from '../config/runtime';
 import { getOutboxSize, getQueuedMutations, removeQueuedMutation } from './offline-store';
 import { sendFrontendTelemetry } from './telemetry';
 
-const apiBaseUrl =
-  runtimeEnv('VITE_API_BASE_URL') || 'http://localhost:3000';
+const apiBaseUrl = runtimeEnv('VITE_API_BASE_URL') || 'http://localhost:3000';
 
 export const cloudFleetApi = axios.create({
   baseURL: apiBaseUrl,
@@ -33,8 +32,13 @@ export const flushOfflineOutbox = async (): Promise<number> => {
   const startedAt = performance.now();
   const queued = await getQueuedMutations();
   sendFrontendTelemetry({
-    type: 'OFFLINE_OUTBOX', event: 'flush', size: queued.length,
-    retryCount: 0, conflictCount: 0, completedCount: 0, durationMs: 0,
+    type: 'OFFLINE_OUTBOX',
+    event: 'flush',
+    size: queued.length,
+    retryCount: 0,
+    conflictCount: 0,
+    completedCount: 0,
+    durationMs: 0,
   });
   let completed = 0;
   let retryCount = 0;
@@ -62,8 +66,13 @@ export const flushOfflineOutbox = async (): Promise<number> => {
   }
   const size = await getOutboxSize();
   sendFrontendTelemetry({
-    type: 'OFFLINE_OUTBOX', event: 'flush', size, retryCount, conflictCount,
-    completedCount: completed, durationMs: performance.now() - startedAt,
+    type: 'OFFLINE_OUTBOX',
+    event: 'flush',
+    size,
+    retryCount,
+    conflictCount,
+    completedCount: completed,
+    durationMs: performance.now() - startedAt,
   });
   window.dispatchEvent(new CustomEvent('cloudfleet:outbox-flushed', { detail: { completed } }));
   return completed;

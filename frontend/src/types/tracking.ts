@@ -21,7 +21,12 @@ export interface PublicTrackingData {
   estimatedArrivalMinutes: number | null;
   driverApproaching: boolean;
   timeline: Array<{ type: OrderEventType; occurredAt: string }>;
-  proof: { confirmed: boolean; uploadedAt: string | null; recipientName: string | null; signatureCaptured: boolean };
+  proof: {
+    confirmed: boolean;
+    uploadedAt: string | null;
+    recipientName: string | null;
+    signatureCaptured: boolean;
+  };
   feedback: CustomerFeedback | null;
   rescheduleRequest: CustomerRescheduleRequest | null;
   createdAt: string;

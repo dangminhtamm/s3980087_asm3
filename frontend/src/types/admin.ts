@@ -112,7 +112,12 @@ export interface DeliveryRoute {
   plannedDistanceMeters: number;
   plannedDurationSeconds: number;
   geometry: Array<[number, number]>;
-  optimization: { provider: string; mode: 'AUTO' | 'MANUAL'; optimizedAt: string; revision: number };
+  optimization: {
+    provider: string;
+    mode: 'AUTO' | 'MANUAL';
+    optimizedAt: string;
+    revision: number;
+  };
   comparison: {
     plannedDurationSeconds: number;
     actualDurationSeconds: number | null;
@@ -126,7 +131,13 @@ export interface DeliveryRoute {
 
 export interface OperationalIssue {
   id: string;
-  type: 'DELIVERY_EXCEPTION' | 'RESCHEDULE_REQUIRED' | 'CUSTOMER_RESCHEDULE_REQUEST' | 'SLA_BREACH' | 'SLA_RISK' | 'UNASSIGNED_URGENT';
+  type:
+    | 'DELIVERY_EXCEPTION'
+    | 'RESCHEDULE_REQUIRED'
+    | 'CUSTOMER_RESCHEDULE_REQUEST'
+    | 'SLA_BREACH'
+    | 'SLA_RISK'
+    | 'UNASSIGNED_URGENT';
   severity: 'CRITICAL' | 'WARNING' | 'NOTICE';
   orderId: string;
   routeId: string | null;
@@ -209,12 +220,7 @@ export interface AnalyticsOverviewData extends AnalyticsPeriodMetric {
 }
 
 export type AnalyticsRunStatus =
-  | 'RUNNING'
-  | 'SUCCEEDED'
-  | 'FAILED'
-  | 'TIMED_OUT'
-  | 'ABORTED'
-  | 'PENDING_REDRIVE';
+  'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'TIMED_OUT' | 'ABORTED' | 'PENDING_REDRIVE';
 
 export interface AnalyticsRun {
   runId: string;

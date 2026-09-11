@@ -17,7 +17,9 @@ export const BrandMark = ({ compact = false, inverse = false }: BrandMarkProps) 
     {!compact && (
       <span>
         <span className="block text-sm font-bold tracking-tight">CloudFleet</span>
-        <span className={`block text-[9px] font-semibold tracking-[0.18em] uppercase ${inverse ? 'text-neutral-500' : 'text-neutral-400'}`}>
+        <span
+          className={`block text-[9px] font-semibold tracking-[0.18em] uppercase ${inverse ? 'text-neutral-500' : 'text-neutral-400'}`}
+        >
           Logistics OS
         </span>
       </span>

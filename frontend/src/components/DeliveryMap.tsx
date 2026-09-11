@@ -3,20 +3,12 @@ import markerIconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
 import markerShadowUrl from 'leaflet/dist/images/marker-shadow.png';
 import { memo, useEffect, useMemo } from 'react';
-import {
-  MapContainer,
-  Marker,
-  Polyline,
-  Popup,
-  TileLayer,
-  useMap,
-} from 'react-leaflet';
+import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
 
 import type { DeliveryMapProps, MapCoordinate } from '../types/map';
 
 // OSM's current tile policy requires this canonical, non-subdomain URL.
-const OPEN_STREET_MAP_URL =
-  'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const OPEN_STREET_MAP_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const EMPTY_ROUTE_PATH: MapCoordinate[] = [];
 
 /**
@@ -81,11 +73,7 @@ const DeliveryMapComponent = ({
   address,
 }: DeliveryMapProps) => {
   const viewportPositions = useMemo<MapCoordinate[]>(
-    () => [
-      orderLocation,
-      ...(driverLocation ? [driverLocation] : []),
-      ...routePath,
-    ],
+    () => [orderLocation, ...(driverLocation ? [driverLocation] : []), ...routePath],
     [driverLocation, orderLocation, routePath],
   );
 
@@ -121,11 +109,7 @@ const DeliveryMapComponent = ({
         </Marker>
       )}
 
-      <Marker
-        position={orderLocation}
-        icon={deliveryMarkerIcon}
-        title={address}
-      >
+      <Marker position={orderLocation} icon={deliveryMarkerIcon} title={address}>
         <Popup>{address}</Popup>
       </Marker>
 

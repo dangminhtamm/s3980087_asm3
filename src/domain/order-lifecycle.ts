@@ -13,22 +13,16 @@ const transitions: Record<OrderStatus, readonly OrderStatus[]> = {
   DELIVERED: [],
 };
 
-export const canTransitionOrder = (
-  current: OrderStatus,
-  next: OrderStatus,
-): boolean => transitions[current].includes(next);
+export const canTransitionOrder = (current: OrderStatus, next: OrderStatus): boolean =>
+  transitions[current].includes(next);
 
-export const allowedOrderTransitions = (
-  current: OrderStatus,
-): readonly OrderStatus[] => transitions[current];
+export const allowedOrderTransitions = (current: OrderStatus): readonly OrderStatus[] =>
+  transitions[current];
 
-export const isExceptionStatus = (
-  status: UpdatableOrderStatus,
-): boolean => status === 'DELIVERY_FAILED' || status === 'CANCELLED';
+export const isExceptionStatus = (status: UpdatableOrderStatus): boolean =>
+  status === 'DELIVERY_FAILED' || status === 'CANCELLED';
 
-export const releasesDriver = (
-  status: UpdatableOrderStatus,
-): boolean =>
+export const releasesDriver = (status: UpdatableOrderStatus): boolean =>
   status === 'DELIVERED' ||
   status === 'RESCHEDULED' ||
   status === 'CANCELLED' ||

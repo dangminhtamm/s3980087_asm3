@@ -1,8 +1,4 @@
-export const ALLOWED_PROOF_CONTENT_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-] as const;
+export const ALLOWED_PROOF_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 
 export type ProofContentType = (typeof ALLOWED_PROOF_CONTENT_TYPES)[number];
 

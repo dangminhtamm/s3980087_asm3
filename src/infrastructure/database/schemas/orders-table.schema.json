@@ -54,7 +54,18 @@
     "lng": { "type": "number", "minimum": -180, "maximum": 180 },
     "status": {
       "type": "string",
-      "enum": ["PENDING", "ASSIGNED", "IN_PROGRESS", "ARRIVED", "DELIVERED", "DELIVERY_FAILED", "RESCHEDULED", "CANCELLED", "RETURNING", "RETURNED"]
+      "enum": [
+        "PENDING",
+        "ASSIGNED",
+        "IN_PROGRESS",
+        "ARRIVED",
+        "DELIVERED",
+        "DELIVERY_FAILED",
+        "RESCHEDULED",
+        "CANCELLED",
+        "RETURNING",
+        "RETURNED"
+      ]
     },
     "driverId": {
       "description": "Null until an admin assigns the order. Omit GSI1PK/GSI1SK while unassigned.",
@@ -75,11 +86,11 @@
     "packageVolumeM3": { "type": "number", "minimum": 0 },
     "serviceDurationMinutes": { "type": "integer", "minimum": 1 },
     "routeId": { "type": ["string", "null"] },
-    "stopSequence": { "type": ["integer", "null"], "minimum": 1 }
-    ,"startedAt": { "type": ["string", "null"], "format": "date-time" }
-    ,"arrivedAt": { "type": ["string", "null"], "format": "date-time" }
-    ,"plannedArrivalAt": { "type": ["string", "null"], "format": "date-time" }
-    ,"customerRescheduleRequest": {
+    "stopSequence": { "type": ["integer", "null"], "minimum": 1 },
+    "startedAt": { "type": ["string", "null"], "format": "date-time" },
+    "arrivedAt": { "type": ["string", "null"], "format": "date-time" },
+    "plannedArrivalAt": { "type": ["string", "null"], "format": "date-time" },
+    "customerRescheduleRequest": {
       "description": "Latest token-authenticated customer request awaiting operational review.",
       "type": ["object", "null"]
     }
@@ -106,10 +117,10 @@
     "packageVolumeM3",
     "serviceDurationMinutes",
     "routeId",
-    "stopSequence"
-    ,"startedAt"
-    ,"arrivedAt"
-    ,"plannedArrivalAt"
+    "stopSequence",
+    "startedAt",
+    "arrivedAt",
+    "plannedArrivalAt"
   ],
   "x-dynamodb-table": {
     "tableNameEnvironmentVariable": "DYNAMODB_TABLE_NAME",

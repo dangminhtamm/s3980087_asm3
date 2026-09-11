@@ -25,32 +25,43 @@ export class GeocodingService {
 
   public constructor(
     private readonly provider = process.env.GEOCODING_PROVIDER?.trim() || 'disabled',
-    private readonly baseUrl = process.env.GEOCODING_BASE_URL?.trim() || 'https://nominatim.openstreetmap.org',
+    private readonly baseUrl = process.env.GEOCODING_BASE_URL?.trim() ||
+      'https://nominatim.openstreetmap.org',
     private readonly userAgent = process.env.GEOCODING_USER_AGENT?.trim() || 'CloudFleet/0.1',
     private readonly minIntervalMs = Number(process.env.GEOCODING_MIN_INTERVAL_MS ?? '1000'),
     private readonly fetcher: typeof fetch = fetch,
   ) {}
 
-  public async validate(address: string, countryCode: string, limit: number): Promise<GeocodingCandidate[]> {
+  public async validate(
+    address: string,
+    countryCode: string,
+    limit: number,
+  ): Promise<GeocodingCandidate[]> {
     if (this.provider !== 'nominatim') {
       throw new AppError(503, 'Address validation is not configured', 'GEOCODING_NOT_CONFIGURED');
     }
     const cacheKey = `${countryCode}:${limit}:${address}`.toLowerCase();
     const cached = this.cache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
-      emitMetrics([
-        { name: 'GeocodingRequestCount', value: 1, unit: 'Count' },
-        { name: 'GeocodingDuration', value: 0, unit: 'Milliseconds' },
-      ], { Provider: this.provider, Cache: 'hit', Outcome: 'success' });
+      emitMetrics(
+        [
+          { name: 'GeocodingRequestCount', value: 1, unit: 'Count' },
+          { name: 'GeocodingDuration', value: 0, unit: 'Milliseconds' },
+        ],
+        { Provider: this.provider, Cache: 'hit', Outcome: 'success' },
+      );
       return cached.data;
     }
 
     const waitMs = Math.max(0, this.nextRequestAt - Date.now());
     if (waitMs) {
       await new Promise<void>((resolve) => setTimeout(resolve, waitMs));
-      emitMetrics([{ name: 'GeocodingThrottleWaitDuration', value: waitMs, unit: 'Milliseconds' }], {
-        Provider: this.provider,
-      });
+      emitMetrics(
+        [{ name: 'GeocodingThrottleWaitDuration', value: waitMs, unit: 'Milliseconds' }],
+        {
+          Provider: this.provider,
+        },
+      );
     }
     this.nextRequestAt = Date.now() + Math.max(0, this.minIntervalMs);
 
@@ -66,28 +77,45 @@ export class GeocodingService {
         headers: { 'User-Agent': this.userAgent, Accept: 'application/json' },
         signal: AbortSignal.timeout(8_000),
       });
-      if (!response.ok) throw new AppError(502, 'Geocoding provider is unavailable', 'GEOCODING_PROVIDER_ERROR');
-      const raw = await response.json() as NominatimResult[];
-      const data = raw.map((result) => ({
-        placeId: String(result.place_id), formattedAddress: result.display_name,
-        lat: Number(result.lat), lng: Number(result.lon),
-        region: result.address?.city ?? result.address?.town ?? result.address?.county ?? result.address?.state ?? null,
-        importance: result.importance ?? 0,
-      })).filter((result) => Number.isFinite(result.lat) && Number.isFinite(result.lng));
+      if (!response.ok)
+        throw new AppError(502, 'Geocoding provider is unavailable', 'GEOCODING_PROVIDER_ERROR');
+      const raw = (await response.json()) as NominatimResult[];
+      const data = raw
+        .map((result) => ({
+          placeId: String(result.place_id),
+          formattedAddress: result.display_name,
+          lat: Number(result.lat),
+          lng: Number(result.lon),
+          region:
+            result.address?.city ??
+            result.address?.town ??
+            result.address?.county ??
+            result.address?.state ??
+            null,
+          importance: result.importance ?? 0,
+        }))
+        .filter((result) => Number.isFinite(result.lat) && Number.isFinite(result.lng));
       this.cache.set(cacheKey, { expiresAt: Date.now() + 24 * 60 * 60 * 1000, data });
-      emitMetrics([
-        { name: 'GeocodingDuration', value: durationMsSince(startedAt), unit: 'Milliseconds' },
-        { name: 'GeocodingRequestCount', value: 1, unit: 'Count' },
-      ], { Provider: this.provider, Cache: 'miss', Outcome: 'success' });
+      emitMetrics(
+        [
+          { name: 'GeocodingDuration', value: durationMsSince(startedAt), unit: 'Milliseconds' },
+          { name: 'GeocodingRequestCount', value: 1, unit: 'Count' },
+        ],
+        { Provider: this.provider, Cache: 'miss', Outcome: 'success' },
+      );
       return data;
     } catch (error: unknown) {
-      emitMetrics([
-        { name: 'GeocodingDuration', value: durationMsSince(startedAt), unit: 'Milliseconds' },
-        { name: 'GeocodingRequestCount', value: 1, unit: 'Count' },
-        { name: 'GeocodingErrorCount', value: 1, unit: 'Count' },
-      ], { Provider: this.provider, Cache: 'miss', Outcome: 'error' }, {
-        errorName: error instanceof Error ? error.name : 'UnknownError',
-      });
+      emitMetrics(
+        [
+          { name: 'GeocodingDuration', value: durationMsSince(startedAt), unit: 'Milliseconds' },
+          { name: 'GeocodingRequestCount', value: 1, unit: 'Count' },
+          { name: 'GeocodingErrorCount', value: 1, unit: 'Count' },
+        ],
+        { Provider: this.provider, Cache: 'miss', Outcome: 'error' },
+        {
+          errorName: error instanceof Error ? error.name : 'UnknownError',
+        },
+      );
       throw error;
     }
   }

@@ -57,8 +57,7 @@ const createUserManager = (): UserManager | null => {
     authority,
     client_id: clientId,
     redirect_uri:
-      runtimeEnv('VITE_COGNITO_REDIRECT_URI') ||
-      `${window.location.origin}/auth/callback`,
+      runtimeEnv('VITE_COGNITO_REDIRECT_URI') || `${window.location.origin}/auth/callback`,
     post_logout_redirect_uri: logoutRedirectUri,
     response_type: 'code',
     scope: 'openid email profile',
@@ -76,8 +75,7 @@ const createUserManager = (): UserManager | null => {
 
 const userManager = createUserManager();
 
-const isRole = (value: unknown): value is UserRole =>
-  value === 'ADMIN' || value === 'DRIVER';
+const isRole = (value: unknown): value is UserRole => value === 'ADMIN' || value === 'DRIVER';
 
 const toCloudFleetUser = (oidcUser: User): CloudFleetUser => {
   const groups = oidcUser.profile['cognito:groups'];
@@ -95,8 +93,7 @@ const toCloudFleetUser = (oidcUser: User): CloudFleetUser => {
       (typeof oidcUser.profile.name === 'string' && oidcUser.profile.name) ||
       (typeof oidcUser.profile.email === 'string' && oidcUser.profile.email) ||
       oidcUser.profile.sub,
-    email:
-      typeof oidcUser.profile.email === 'string' ? oidcUser.profile.email : undefined,
+    email: typeof oidcUser.profile.email === 'string' ? oidcUser.profile.email : undefined,
     roles,
   };
 };

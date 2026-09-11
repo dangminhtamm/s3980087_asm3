@@ -19,10 +19,14 @@ const DriverLayout = lazy(() =>
   import('./components/driver/DriverLayout').then((module) => ({ default: module.DriverLayout })),
 );
 const DriverHistoryPage = lazy(() =>
-  import('./pages/driver/DriverHistoryPage').then((module) => ({ default: module.DriverHistoryPage })),
+  import('./pages/driver/DriverHistoryPage').then((module) => ({
+    default: module.DriverHistoryPage,
+  })),
 );
 const DriverProfilePage = lazy(() =>
-  import('./pages/driver/DriverProfilePage').then((module) => ({ default: module.DriverProfilePage })),
+  import('./pages/driver/DriverProfilePage').then((module) => ({
+    default: module.DriverProfilePage,
+  })),
 );
 const AdminLayout = lazy(() =>
   import('./components/admin/AdminLayout').then((module) => ({

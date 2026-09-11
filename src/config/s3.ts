@@ -46,9 +46,6 @@ export const s3PresignClient = publicSigningEndpoint
     })
   : s3Client;
 
-export const DELIVERY_PROOF_BUCKET = getRequiredEnvironmentVariable(
-  'S3_DELIVERY_PROOF_BUCKET',
-);
+export const DELIVERY_PROOF_BUCKET = getRequiredEnvironmentVariable('S3_DELIVERY_PROOF_BUCKET');
 
-export const ANALYTICS_BUCKET =
-  process.env.S3_ANALYTICS_BUCKET?.trim() || null;
+export const ANALYTICS_BUCKET = process.env.S3_ANALYTICS_BUCKET?.trim() || null;

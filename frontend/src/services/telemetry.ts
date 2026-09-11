@@ -3,9 +3,18 @@ import { onCLS, onINP, onLCP, type Metric } from 'web-vitals';
 import { runtimeEnv } from '../config/runtime';
 
 type PageName =
-  | 'home' | 'login' | 'auth-callback' | 'tracking' | 'admin-orders'
-  | 'admin-order' | 'admin-fleet' | 'admin-route' | 'admin-operations'
-  | 'admin-analytics' | 'driver' | 'other';
+  | 'home'
+  | 'login'
+  | 'auth-callback'
+  | 'tracking'
+  | 'admin-orders'
+  | 'admin-order'
+  | 'admin-fleet'
+  | 'admin-route'
+  | 'admin-operations'
+  | 'admin-analytics'
+  | 'driver'
+  | 'other';
 
 export type FrontendTelemetry =
   | {

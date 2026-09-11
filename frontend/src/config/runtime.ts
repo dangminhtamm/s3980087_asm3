@@ -11,10 +11,7 @@ export type CloudFleetRuntimeVariable =
 
 // Keep this allowlist explicit. Dynamic access to import.meta.env can make Vite
 // serialize unrelated VITE_* values from a developer's local environment.
-const buildEnvironment: Record<
-  CloudFleetRuntimeVariable,
-  string | undefined
-> = {
+const buildEnvironment: Record<CloudFleetRuntimeVariable, string | undefined> = {
   VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
   VITE_AUTH_MODE: import.meta.env.VITE_AUTH_MODE,
   VITE_COGNITO_REGION: import.meta.env.VITE_COGNITO_REGION,
