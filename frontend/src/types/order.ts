@@ -1,4 +1,6 @@
 import type { AdminOrderStatus } from './admin';
+import type { ApiEnvelope as SharedApiEnvelope } from '../../../packages/contracts/index.js';
+export type { DeliveryProof, PresignedUpload } from '../../../packages/contracts/index.js';
 
 export type DeliveryStatus = AdminOrderStatus;
 
@@ -18,28 +20,4 @@ export interface DeliveryOrder {
   };
 }
 
-export interface PresignedUpload {
-  uploadUrl: string;
-  objectKey: string;
-  expiresIn: number;
-  requiredHeaders: Record<string, string>;
-}
-
-export interface DeliveryProof {
-  orderId: string;
-  objectKey: string;
-  contentType: 'image/jpeg' | 'image/png' | 'image/webp';
-  size: number;
-  etag: string;
-  uploadedBy: string;
-  uploadedAt: string;
-  recipientName: string | null;
-  signatureDataUrl: string | null;
-  barcode: string | null;
-  notes: string | null;
-  gps: { lat: number; lng: number; accuracy: number | null; recordedAt: string } | null;
-}
-
-export interface ApiEnvelope<T> {
-  data: T;
-}
+export type ApiEnvelope<T> = SharedApiEnvelope<T>;

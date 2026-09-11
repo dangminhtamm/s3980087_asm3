@@ -1,25 +1,11 @@
 import { randomUUID } from 'node:crypto';
+import {
+  ORDER_EVENT_TYPES,
+  type OrderEventSource,
+  type OrderEventType,
+} from '../../../packages/contracts/index.js';
 
-export const ORDER_EVENT_TYPES = [
-  'ORDER_CREATED',
-  'DRIVER_ASSIGNED',
-  'DELIVERY_STARTED',
-  'DRIVER_ARRIVED',
-  'PROOF_UPLOADED',
-  'DELIVERY_COMPLETED',
-  'DELIVERY_FAILED',
-  'DELIVERY_RESCHEDULED',
-  'ORDER_CANCELLED',
-  'RETURN_STARTED',
-  'ORDER_RETURNED',
-  'SMS_NOTIFICATION_SENT',
-  'SMS_NOTIFICATION_FAILED',
-  'CUSTOMER_RESCHEDULE_REQUESTED',
-  'CUSTOMER_FEEDBACK_RECEIVED',
-] as const;
-
-export type OrderEventType = (typeof ORDER_EVENT_TYPES)[number];
-export type OrderEventSource = 'RECORDED' | 'DERIVED';
+export { ORDER_EVENT_TYPES, type OrderEventSource, type OrderEventType };
 
 export interface OrderEvent {
   eventId: string;

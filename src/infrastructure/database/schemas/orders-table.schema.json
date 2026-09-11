@@ -78,7 +78,28 @@
     "deliveredAt": { "type": ["string", "null"], "format": "date-time" },
     "exception": {
       "description": "Latest operational exception, retained for audit after resolution.",
-      "type": ["object", "null"]
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "reason": {
+          "type": "string",
+          "enum": [
+            "CUSTOMER_UNAVAILABLE",
+            "INVALID_ADDRESS",
+            "CUSTOMER_REJECTED",
+            "DAMAGED_PACKAGE",
+            "VEHICLE_ISSUE",
+            "WEATHER_OR_TRAFFIC",
+            "DUPLICATE_ORDER",
+            "CUSTOMER_CANCELLED",
+            "OTHER"
+          ]
+        },
+        "notes": { "type": ["string", "null"] },
+        "reportedAt": { "type": "string", "format": "date-time" },
+        "reportedBy": { "type": "string", "minLength": 1 }
+      },
+      "required": ["reason", "notes", "reportedAt", "reportedBy"]
     },
     "timeWindowStart": { "type": ["string", "null"], "format": "date-time" },
     "timeWindowEnd": { "type": ["string", "null"], "format": "date-time" },

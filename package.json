@@ -12,6 +12,7 @@
     "test": "npm run test:unit",
     "test:unit": "node --import tsx --test test/unit/*.test.ts",
     "test:integration": "node --import tsx --test test/integration/*.test.ts",
+    "contracts:check": "node --import tsx --test test/unit/contracts-and-schemas.test.ts",
     "test:coverage:backend": "c8 node --import tsx --test test/unit/*.test.ts",
     "test:coverage": "npm run test:coverage:backend && npm --prefix frontend run test:coverage",
     "test:e2e": "npm run local:e2e",

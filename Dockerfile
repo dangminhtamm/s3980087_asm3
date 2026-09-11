@@ -5,6 +5,7 @@ RUN npm ci
 
 FROM dependencies AS build
 COPY tsconfig.json ./
+COPY packages ./packages
 COPY src ./src
 RUN npm run build
 RUN npm prune --omit=dev
@@ -18,6 +19,7 @@ ENV NODE_ENV=production \
 COPY --chown=node:node package.json package-lock.json ./
 COPY --chown=node:node --from=build /app/node_modules ./node_modules
 COPY --chown=node:node --from=build /app/dist ./dist
+COPY --chown=node:node --from=build /app/packages ./packages
 
 USER node
 EXPOSE 3000

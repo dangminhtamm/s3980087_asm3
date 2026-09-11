@@ -1,84 +1,29 @@
-export const ORDER_STATUSES = [
-  'PENDING',
-  'ASSIGNED',
-  'IN_PROGRESS',
-  'ARRIVED',
-  'DELIVERED',
-  'DELIVERY_FAILED',
-  'RESCHEDULED',
-  'CANCELLED',
-  'RETURNING',
-  'RETURNED',
-] as const;
+import {
+  ORDER_EXCEPTION_REASONS,
+  ORDER_STATUSES,
+  UPDATABLE_ORDER_STATUSES,
+  type CustomerRescheduleRequestDto,
+  type OrderDto,
+  type OrderExceptionDto,
+  type OrderExceptionReason,
+  type OrderStatus,
+  type UpdatableOrderStatus,
+} from '../../../packages/contracts/index.js';
 
-export type OrderStatus = (typeof ORDER_STATUSES)[number];
+export {
+  ORDER_EXCEPTION_REASONS,
+  ORDER_STATUSES,
+  UPDATABLE_ORDER_STATUSES,
+  type OrderExceptionReason,
+  type OrderStatus,
+  type UpdatableOrderStatus,
+};
 
-export const UPDATABLE_ORDER_STATUSES = [
-  'IN_PROGRESS',
-  'ARRIVED',
-  'DELIVERED',
-  'DELIVERY_FAILED',
-  'RESCHEDULED',
-  'CANCELLED',
-  'RETURNING',
-  'RETURNED',
-] as const;
+export type OrderException = OrderExceptionDto;
 
-export type UpdatableOrderStatus = (typeof UPDATABLE_ORDER_STATUSES)[number];
+export type CustomerRescheduleRequest = CustomerRescheduleRequestDto;
 
-export const ORDER_EXCEPTION_REASONS = [
-  'CUSTOMER_UNAVAILABLE',
-  'INVALID_ADDRESS',
-  'CUSTOMER_REJECTED',
-  'DAMAGED_PACKAGE',
-  'VEHICLE_ISSUE',
-  'WEATHER_OR_TRAFFIC',
-  'DUPLICATE_ORDER',
-  'CUSTOMER_CANCELLED',
-  'OTHER',
-] as const;
-
-export type OrderExceptionReason = (typeof ORDER_EXCEPTION_REASONS)[number];
-
-export interface OrderException {
-  reason: OrderExceptionReason;
-  notes: string | null;
-  reportedAt: string;
-  reportedBy: string;
-}
-
-export interface CustomerRescheduleRequest {
-  requestedWindowStart: string;
-  requestedWindowEnd: string;
-  notes: string | null;
-  requestedAt: string;
-}
-
-export interface Order {
-  orderId: string;
-  customerName: string;
-  customerPhone: string;
-  dropoffAddress: string;
-  region: string;
-  lat: number;
-  lng: number;
-  status: OrderStatus;
-  driverId: string | null;
-  createdAt: string;
-  deliveredAt: string | null;
-  exception: OrderException | null;
-  timeWindowStart: string | null;
-  timeWindowEnd: string | null;
-  packageWeightKg: number;
-  packageVolumeM3: number;
-  serviceDurationMinutes: number;
-  routeId: string | null;
-  stopSequence: number | null;
-  startedAt: string | null;
-  arrivedAt: string | null;
-  plannedArrivalAt: string | null;
-  customerRescheduleRequest: CustomerRescheduleRequest | null;
-}
+export type Order = OrderDto;
 
 export interface CreateOrderInput {
   customerName: string;

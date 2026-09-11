@@ -1,63 +1,13 @@
-import type { OrderStatus } from './order.js';
+import {
+  ROUTE_STATUSES,
+  type DeliveryRoute,
+  type RouteComparison,
+  type RouteStatus,
+  type RouteStop,
+} from '../../../packages/contracts/index.js';
 
-export const ROUTE_STATUSES = ['PLANNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'] as const;
-export type RouteStatus = (typeof ROUTE_STATUSES)[number];
-
-export interface RouteStop {
-  routeId: string;
-  orderId: string;
-  sequence: number;
-  status: OrderStatus;
-  dropoffAddress: string;
-  lat: number;
-  lng: number;
-  timeWindowStart: string | null;
-  timeWindowEnd: string | null;
-  packageWeightKg: number;
-  packageVolumeM3: number;
-  serviceDurationMinutes: number;
-  plannedArrivalAt: string;
-  plannedDepartureAt: string;
-  plannedTravelDurationSeconds: number;
-  plannedDistanceMeters: number;
-  actualArrivalAt: string | null;
-  etaAt: string;
-  delayMinutes: number;
-  slaStatus: 'NO_WINDOW' | 'ON_TIME' | 'AT_RISK' | 'LATE';
-}
-
-export interface RouteComparison {
-  plannedDurationSeconds: number;
-  actualDurationSeconds: number | null;
-  varianceSeconds: number | null;
-  completedStops: number;
-  onTimeStops: number;
-  lateStops: number;
-}
-
-export interface Route {
-  routeId: string;
-  driverId: string;
-  scheduledDate: string;
-  status: RouteStatus;
-  stopCount: number;
-  totalWeightKg: number;
-  totalVolumeM3: number;
-  createdAt: string;
-  createdBy: string;
-  origin: { lat: number; lng: number };
-  plannedDistanceMeters: number;
-  plannedDurationSeconds: number;
-  geometry: Array<[lat: number, lng: number]>;
-  optimization: {
-    provider: string;
-    mode: 'AUTO' | 'MANUAL';
-    optimizedAt: string;
-    revision: number;
-  };
-  comparison: RouteComparison;
-  stops: RouteStop[];
-}
+export { ROUTE_STATUSES, type RouteComparison, type RouteStatus, type RouteStop };
+export type Route = DeliveryRoute;
 
 export interface CreateRouteInput {
   driverId: string;

@@ -83,10 +83,17 @@ The root CDK stack is the composition layer. Resource groups will become focused
 
 ## Contract ownership
 
-- Zod request schemas currently define the authoritative HTTP input contract.
-- Domain entities define backend output types.
-- Frontend and E2E declarations are temporary mirrors. A later sprint will replace these mirrors with generated or shared contracts.
-- DynamoDB JSON schemas are documentation until an automated schema check is added; they must not be treated as runtime validation.
+- `packages/contracts` is the framework-neutral source for finite domain values, public DTOs and API envelopes. Backend domain aliases, frontend feature types and local E2E scenarios import it rather than declaring transport shapes independently.
+- Zod request schemas remain authoritative for runtime HTTP input validation and consume the canonical finite values through backend domain re-exports.
+- DynamoDB JSON schemas document persisted items. `contracts-and-schemas.test.ts` automatically checks every schema is parseable and verifies status, exception, event and proof enums against the shared contract.
+- The shared package must not import AWS, Express or React. Provider-specific data is mapped at an adapter boundary before entering a shared DTO.
+
+## Lambda and local-tool boundaries
+
+- Lambda handlers construct adapters and translate AWS events only. Delivery notification, analytics workflow and realtime connection decisions live in services tested against in-memory ports.
+- Twilio HTTP, Secrets Manager, DynamoDB stream/persistence and EMR Serverless calls live in named adapters under their owning Lambda.
+- `local-bootstrap.ts` runs resource setup, ordered migrations and the explicit `2026-09-12-v1` fixture independently. Conditional writes and ensure-style resource creation make repeated runs safe.
+- `local-e2e.ts` is a runner; HTTP concerns, generated fixtures and scenario assertions live under `src/scripts/local-e2e/`.
 
 ## Quality gates
 

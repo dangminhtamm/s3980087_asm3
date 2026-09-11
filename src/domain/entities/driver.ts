@@ -1,22 +1,13 @@
-export const DRIVER_STATUSES = ['AVAILABLE', 'ON_DELIVERY', 'OFFLINE'] as const;
+import {
+  DRIVER_STATUSES,
+  type DriverDto,
+  type DriverLocationDto,
+  type DriverStatus,
+} from '../../../packages/contracts/index.js';
 
-export type DriverStatus = (typeof DRIVER_STATUSES)[number];
+export { DRIVER_STATUSES, type DriverStatus };
 
-export interface Driver {
-  driverId: string;
-  name: string;
-  phone: string;
-  vehiclePlate: string;
-  currentArea: string;
-  status: DriverStatus;
-  completedToday: number;
-  lat: number | null;
-  lng: number | null;
-  locationUpdatedAt: string | null;
-  updatedAt: string;
-  maxWeightKg: number;
-  maxVolumeM3: number;
-}
+export type Driver = DriverDto;
 
 export interface CreateDriverInput {
   name: string;
@@ -41,13 +32,7 @@ export interface UpdateDriverLocationInput {
   recordedAt?: string | undefined;
 }
 
-export interface DriverLocation {
-  driverId: string;
-  lat: number;
-  lng: number;
-  accuracy: number | null;
-  recordedAt: string;
-}
+export type DriverLocation = DriverLocationDto;
 
 export interface DriverLocationItem extends DriverLocation {
   PK: string;

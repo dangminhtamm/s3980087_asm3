@@ -1,24 +1,8 @@
 import type { Order } from '../domain/entities/order.js';
+import type { OperationalIssue } from '../../packages/contracts/index.js';
 import type { OrderService } from './order.service.js';
 
-export interface OperationalIssue {
-  id: string;
-  type:
-    | 'DELIVERY_EXCEPTION'
-    | 'RESCHEDULE_REQUIRED'
-    | 'CUSTOMER_RESCHEDULE_REQUEST'
-    | 'SLA_BREACH'
-    | 'SLA_RISK'
-    | 'UNASSIGNED_URGENT';
-  severity: 'CRITICAL' | 'WARNING' | 'NOTICE';
-  orderId: string;
-  routeId: string | null;
-  driverId: string | null;
-  title: string;
-  detail: string;
-  dueAt: string | null;
-  predictedAt: string | null;
-}
+export type { OperationalIssue };
 
 const isTerminal = (order: Order): boolean =>
   ['DELIVERED', 'CANCELLED', 'RETURNED'].includes(order.status);

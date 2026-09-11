@@ -1,0 +1,60 @@
+/** Canonical API and domain values shared by backend, frontend and E2E. */
+export const ORDER_STATUSES = Object.freeze([
+  'PENDING',
+  'ASSIGNED',
+  'IN_PROGRESS',
+  'ARRIVED',
+  'DELIVERED',
+  'DELIVERY_FAILED',
+  'RESCHEDULED',
+  'CANCELLED',
+  'RETURNING',
+  'RETURNED',
+]);
+
+export const UPDATABLE_ORDER_STATUSES = Object.freeze([
+  'IN_PROGRESS',
+  'ARRIVED',
+  'DELIVERED',
+  'DELIVERY_FAILED',
+  'RESCHEDULED',
+  'CANCELLED',
+  'RETURNING',
+  'RETURNED',
+]);
+
+export const ORDER_EXCEPTION_REASONS = Object.freeze([
+  'CUSTOMER_UNAVAILABLE',
+  'INVALID_ADDRESS',
+  'CUSTOMER_REJECTED',
+  'DAMAGED_PACKAGE',
+  'VEHICLE_ISSUE',
+  'WEATHER_OR_TRAFFIC',
+  'DUPLICATE_ORDER',
+  'CUSTOMER_CANCELLED',
+  'OTHER',
+]);
+
+export const DRIVER_STATUSES = Object.freeze(['AVAILABLE', 'ON_DELIVERY', 'OFFLINE']);
+
+export const ROUTE_STATUSES = Object.freeze(['PLANNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']);
+
+export const ALLOWED_PROOF_CONTENT_TYPES = Object.freeze(['image/jpeg', 'image/png', 'image/webp']);
+
+export const ORDER_EVENT_TYPES = Object.freeze([
+  'ORDER_CREATED',
+  'DRIVER_ASSIGNED',
+  'DELIVERY_STARTED',
+  'DRIVER_ARRIVED',
+  'PROOF_UPLOADED',
+  'DELIVERY_COMPLETED',
+  'DELIVERY_FAILED',
+  'DELIVERY_RESCHEDULED',
+  'ORDER_CANCELLED',
+  'CUSTOMER_RESCHEDULE_REQUESTED',
+  'CUSTOMER_FEEDBACK_RECEIVED',
+  'RETURN_STARTED',
+  'ORDER_RETURNED',
+  'SMS_NOTIFICATION_SENT',
+  'SMS_NOTIFICATION_FAILED',
+]);

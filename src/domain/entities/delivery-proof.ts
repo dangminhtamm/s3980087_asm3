@@ -1,30 +1,18 @@
-export const ALLOWED_PROOF_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+import {
+  ALLOWED_PROOF_CONTENT_TYPES,
+  type DeliveryProof,
+  type ProofContentType,
+  type ProofGpsLocation,
+} from '../../../packages/contracts/index.js';
 
-export type ProofContentType = (typeof ALLOWED_PROOF_CONTENT_TYPES)[number];
+export {
+  ALLOWED_PROOF_CONTENT_TYPES,
+  type DeliveryProof,
+  type ProofContentType,
+  type ProofGpsLocation,
+};
 
 export const MAX_PROOF_FILE_SIZE_BYTES = 10 * 1024 * 1024;
-
-export interface DeliveryProof {
-  orderId: string;
-  objectKey: string;
-  contentType: ProofContentType;
-  size: number;
-  etag: string;
-  uploadedBy: string;
-  uploadedAt: string;
-  recipientName: string | null;
-  signatureDataUrl: string | null;
-  barcode: string | null;
-  notes: string | null;
-  gps: ProofGpsLocation | null;
-}
-
-export interface ProofGpsLocation {
-  lat: number;
-  lng: number;
-  accuracy: number | null;
-  recordedAt: string;
-}
 
 export interface DeliveryProofItem extends DeliveryProof {
   PK: string;
