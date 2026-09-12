@@ -69,8 +69,8 @@ pages -> feature components/hooks -> feature API or offline ports -> shared HTTP
 The frontend is organized around `features/orders`, `features/drivers`, `features/routes`,
 `features/tracking`, `features/proof-of-delivery`, `features/analytics` and
 `features/offline-sync`. Shared HTTP, auth, runtime configuration and UI exports live under
-`shared/`. The legacy files under `services/` are compatibility barrels only; new code imports
-the owning feature directly.
+`shared/`. Obsolete compatibility barrels have been removed; code imports the owning feature
+directly.
 
 `features/offline-sync` separates its IndexedDB repository, retry/conflict policy and sync engine.
 The mock fallback is a development-only adapter loaded lazily, so mutable demo state is excluded
@@ -79,7 +79,34 @@ MSW and fake IndexedDB.
 
 ## Infrastructure boundary
 
-The root CDK stack is the composition layer. Resource groups will become focused constructs for operational data, storage, identity, frontend hosting, API compute, realtime, analytics and observability. Application code must not import CDK modules.
+The root CDK stack is now a composition layer; it wires focused constructs and owns only tags and outputs. Application code must not import CDK modules.
+
+```mermaid
+flowchart LR
+  Stack[CloudFleetStack] --> Data[OperationalData]
+  Stack --> Storage
+  Stack --> Identity
+  Stack --> Frontend[FrontendHosting]
+  Stack --> API[ApiCompute]
+  Stack --> Realtime
+  Stack --> Analytics[AnalyticsPipeline]
+  Stack --> Observability
+  Data --> API
+  Storage --> Frontend
+  Storage --> API
+  Identity --> API
+  Realtime --> API
+  Analytics --> API
+  Frontend --> API
+```
+
+- `deployment-config.ts` validates the finite deployment stage (`dev`, `test`, `staging`, or `prod`), CORS origins and routing settings once. Constructs receive typed values and never read `process.env`.
+- `OperationalData` owns the DynamoDB table and stream-driven notification worker.
+- `Storage`, `Identity` and `FrontendHosting` own durable buckets, Cognito/secrets and CloudFront/runtime frontend deployment respectively.
+- `ApiCompute` owns VPC, ECS/ALB and the HTTP API; `Realtime` and `AnalyticsPipeline` own their asynchronous execution paths.
+- `Observability` owns the CloudWatch performance dashboard.
+- `CloudFleetStack.allocateLogicalId` removes only the new boundary segments when calculating IDs, so extracting constructs does not replace existing named/stateful resources. Assertion tests pin critical pre-refactor IDs.
+- CDK assertion tests synthesize both development and production configurations and verify encryption, retention, removal policy, JWT/public route boundaries, CORS and health checks.
 
 ## Contract ownership
 
@@ -97,7 +124,9 @@ The root CDK stack is the composition layer. Resource groups will become focused
 
 ## Quality gates
 
-Every change must pass `npm run verify`. The command checks formatting and linting, runs backend and frontend coverage tests, type-checks every TypeScript project, builds the frontend, synthesizes CDK, starts the local dependencies and executes integration tests. If the local Compose stack was not running before verification, the command stops it afterward without deleting volumes.
+Every change must pass `npm run verify`. The command checks formatting and linting, runs backend and frontend coverage tests plus changed-code quality budgets, type-checks every TypeScript project, builds the frontend, executes CDK assertions, synthesizes CDK, starts the local dependencies and executes integration and E2E tests. If the local Compose stack was not running before verification, the command stops it afterward without deleting volumes.
+
+`quality-budget.json` is the debt ratchet: changed coverable application lines must be at least 80% covered, new production files are capped at 350 lines, and cyclomatic complexity is capped at 15. Explicit legacy exceptions record the current ceiling; moving or increasing them fails the gate. The 50-user k6 gate also compares every flow p95 with the versioned baseline under `load/baselines/` and rejects regressions above 10%.
 
 The initial 80% backend coverage gate applies to the core lifecycle, order, assignment, route, tracking, geocoding, idempotency and operations workflow modules listed in `.c8rc.json`. AWS/provider adapters remain visible in ordinary unit and integration tests and will join the threshold as their injectable boundaries are introduced.
 

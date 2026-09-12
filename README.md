@@ -62,10 +62,11 @@ Run the same safety net used by CI from the repository root:
 npm run verify
 ```
 
-It enforces Prettier and zero-warning ESLint, type-checks the backend, frontend
-and infrastructure, runs backend/frontend coverage tests, builds the frontend,
-synthesizes CDK and runs the integration suite against the local Compose stack.
-See `docs/architecture.md` for module boundaries and coverage scope.
+It enforces Prettier and zero-warning ESLint, changed-code coverage/complexity/file-size
+budgets, type-checks every TypeScript project, runs backend/frontend and CDK assertion
+tests, builds and synthesizes the deployment, then runs integration and E2E scenarios
+against the local Compose stack. See `docs/architecture.md` for module boundaries and
+the debt-ratchet rules.
 
 ### End-to-end delivery demo
 
@@ -377,6 +378,13 @@ Control and React Router fallback, the delivery notification Lambda, Cognito,
 ECS Fargate, an internal ALB, and an API Gateway HTTP API with a VPC Link and
 Cognito JWT authorizer. CDK builds and uploads the frontend and creates its
 production API/Cognito runtime configuration automatically.
+
+`CloudFleetStack` is wiring-only. Infrastructure is split into `OperationalData`,
+`Storage`, `Identity`, `FrontendHosting`, `ApiCompute`, `Realtime`,
+`AnalyticsPipeline` and `Observability` constructs. Stage, CORS and routing settings
+are validated once by the typed deployment configuration. `npm --prefix infra test`
+synthesizes dev/prod stacks and asserts encryption, retention, authorization, health
+checks, CORS and removal policy before a deployment can pass CI.
 
 The backend container is built from the root `Dockerfile`. See
 `infra/README.md` for deployment prerequisites and commands.

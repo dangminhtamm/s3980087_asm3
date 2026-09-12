@@ -12,7 +12,7 @@ import {
   queueMutation,
   removeQueuedMutation,
   updateCachedOrder,
-} from './offline-store';
+} from '../features/offline-sync';
 
 Object.defineProperty(globalThis, 'navigator', {
   configurable: true,

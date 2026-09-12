@@ -6,6 +6,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "npm --prefix ../frontend run build",
+    "test": "npm run test:assertions",
+    "test:assertions": "node --import tsx --test test/*.test.ts",
     "presynth": "npm --prefix ../frontend run build",
     "synth": "cdk synth --no-lookups --quiet",
     "prediff": "npm --prefix ../frontend run build",

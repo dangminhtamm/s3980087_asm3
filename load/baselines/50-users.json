@@ -1,0 +1,16 @@
+{
+  "profile": {
+    "vus": 50,
+    "duration": "30s",
+    "environment": "k6 host to Docker local API, clean volumes, warm service",
+    "recordedAt": "2026-09-12T04:48:21.000Z"
+  },
+  "summary": { "httpP95Ms": 114.74085 },
+  "flows": {
+    "get_orders": { "p95Ms": 72.23677865 },
+    "tracking_refresh": { "p95Ms": 130.45329155 },
+    "gps_update": { "p95Ms": 185.6322 },
+    "assign_status_mutation": { "p95Ms": 1152.85 },
+    "operations_issues": { "p95Ms": 64.93035425 }
+  }
+}

@@ -2,6 +2,8 @@
   "errorRate": 0.01,
   "httpP95Ms": 1000,
   "httpP99Ms": 2000,
+  "regressionTolerance": 0.1,
+  "baseline50Users": "load/baselines/50-users.json",
   "flows": {
     "get_orders": { "p95Ms": 750 },
     "tracking_refresh": { "p95Ms": 750 },

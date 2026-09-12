@@ -1,0 +1,28 @@
+{
+  "minimumChangedCodeCoveragePercent": 80,
+  "maximumCyclomaticComplexity": 15,
+  "maximumNewProductionFileLines": 350,
+  "grandfatheredFileLineLimits": {
+    "frontend/src/components/admin/DeepAnalytics.tsx": 658,
+    "frontend/src/features/dev/mock-data.adapter.ts": 424,
+    "frontend/src/features/orders/components/OrderDetailView.tsx": 432,
+    "frontend/src/features/orders/components/OrdersDialogs.tsx": 391,
+    "frontend/src/features/routes/components/DispatchView.tsx": 447,
+    "frontend/src/features/tracking/components/TrackingView.tsx": 402,
+    "src/repositories/order.repository.ts": 537
+  },
+  "complexityExemptions": [
+    ["frontend/src/components/DriverOrderDetails.tsx", 62, 19],
+    ["frontend/src/features/dev/mock-data.adapter.ts", 171, 17],
+    ["frontend/src/features/orders/components/OrderDetailView.tsx", 125, 25],
+    ["frontend/src/features/proof-of-delivery/components/ProofCapture.tsx", 30, 19],
+    ["frontend/src/pages/DriverPage.tsx", 37, 17],
+    ["frontend/src/pages/TrackingPage.tsx", 50, 19],
+    ["src/domain/route-optimizer.ts", 66, 16],
+    ["src/services/delivery-proof.service.ts", 74, 20],
+    ["src/services/driver.service.ts", 202, 16],
+    ["src/services/operations.service.ts", 16, 21],
+    ["src/services/order-event.service.ts", 39, 16],
+    ["src/services/tracking.service.ts", 49, 25]
+  ]
+}

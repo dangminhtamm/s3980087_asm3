@@ -18,6 +18,7 @@
     "test:e2e": "npm run local:e2e",
     "test:local": "npm run local:up && npm run test:unit && npm run test:integration && npm run test:e2e",
     "infra:typecheck": "npm --prefix infra run typecheck",
+    "infra:test": "npm --prefix infra run test:assertions",
     "infra:synth": "npm --prefix infra run synth",
     "infra:deploy": "npm --prefix infra run deploy",
     "local:up": "docker compose up --build -d --wait",
@@ -36,6 +37,7 @@
     "lint": "eslint . --max-warnings=0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "quality:budget": "node scripts/check-quality-budgets.mjs",
     "verify": "node scripts/verify.mjs"
   },
   "engines": {

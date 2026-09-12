@@ -2,14 +2,13 @@
 import { App } from 'aws-cdk-lib';
 
 import { CloudFleetStack } from '../lib/cloudfleet-stack.js';
+import { deploymentConfigFromApp } from '../lib/deployment-config.js';
 
 const app = new App();
-const projectName = app.node.tryGetContext('projectName') as string | undefined;
-const stage = app.node.tryGetContext('stage') as string | undefined;
+const deployment = deploymentConfigFromApp(app);
 
 new CloudFleetStack(app, 'CloudFleetStack', {
-  projectName: projectName?.trim() || 'cloudfleet',
-  stage: stage?.trim() || 'dev',
+  deployment,
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION || 'ap-southeast-1',

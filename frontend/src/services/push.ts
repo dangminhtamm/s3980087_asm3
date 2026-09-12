@@ -1,5 +1,5 @@
 import type { ApiEnvelope } from '../types/order';
-import { cloudFleetApi } from './api';
+import { cloudFleetApi } from '../shared/api/http-client';
 
 const decodeVapidKey = (value: string): Uint8Array<ArrayBuffer> => {
   const padding = '='.repeat((4 - (value.length % 4)) % 4);

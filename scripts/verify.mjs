@@ -30,13 +30,16 @@ try {
   run('npm', ['run', 'lint']);
   run('npm', ['run', 'typecheck']);
   run('npm', ['run', 'test:coverage']);
+  run('npm', ['run', 'quality:budget']);
   run('npm', ['--prefix', 'frontend', 'run', 'typecheck']);
   run('npm', ['--prefix', 'frontend', 'run', 'build']);
   run('npm', ['run', 'infra:typecheck']);
+  run('npm', ['run', 'infra:test']);
   run('npm', ['run', 'infra:synth']);
   stackStarted = true;
   run('npm', ['run', 'local:up']);
   run('npm', ['run', 'test:integration']);
+  run('npm', ['run', 'test:e2e']);
   console.info('\nCloudFleet verification passed.');
 } finally {
   if (stackStarted && !stackWasRunning) {

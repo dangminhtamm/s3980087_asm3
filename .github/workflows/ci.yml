@@ -7,9 +7,14 @@ on:
 
 jobs:
   test-and-build:
+    name: Required quality gate
     runs-on: ubuntu-latest
+    env:
+      QUALITY_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -26,6 +31,7 @@ jobs:
         run: docker compose down
 
   performance-budget:
+    name: Required 50-user performance gate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

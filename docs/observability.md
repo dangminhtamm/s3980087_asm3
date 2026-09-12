@@ -34,6 +34,6 @@ Run staging with an admin Cognito access token. Local DynamoDB and MinIO results
 
 ## Performance budget
 
-`performance-budget.json` is the single budget file used by k6 and the CI verifier. Pull requests run a 50-user, 20-second gate. The scheduled/manual workflow runs 50, 200, and 500-user profiles and uploads the raw summaries plus the generated report.
+`performance-budget.json` is the single budget file used by k6 and the CI verifier. Pull requests run a 50-user, 20-second gate. Besides the absolute SLO limits, the verifier compares overall and per-flow p95 latency with `load/baselines/50-users.json`; an increase above 10% fails CI. The scheduled/manual workflow runs 50, 200, and 500-user profiles and uploads the raw summaries plus the generated report. Update the versioned baseline only after an intentional, reviewed performance change.
 
 Frontend budgets use p75: LCP ≤ 2500 ms, INP ≤ 200 ms, and CLS ≤ 0.1. API budgets use a flow error rate below 1%, overall p95 below 1000 ms and p99 below 2000 ms, with tighter per-flow thresholds where appropriate.

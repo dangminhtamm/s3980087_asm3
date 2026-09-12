@@ -21,6 +21,22 @@ for (const file of files) {
   for (const [flow, limits] of Object.entries(budget.flows)) {
     assertMaximum(`${flow} p95`, values(`flow_${flow}_duration`)['p(95)'], limits.p95Ms);
   }
+  if (report.profile?.vus === 50) {
+    const baseline = JSON.parse(await readFile(budget.baseline50Users, 'utf8'));
+    const regressionLimit = (value) => value * (1 + budget.regressionTolerance);
+    assertMaximum(
+      'overall p95 regression',
+      report.summary.httpP95Ms,
+      regressionLimit(baseline.summary.httpP95Ms),
+    );
+    for (const [flow, valuesForFlow] of Object.entries(baseline.flows)) {
+      assertMaximum(
+        `${flow} p95 regression`,
+        values(`flow_${flow}_duration`)['p(95)'],
+        regressionLimit(valuesForFlow.p95Ms),
+      );
+    }
+  }
 }
 
 if (failures.length > 0) {
