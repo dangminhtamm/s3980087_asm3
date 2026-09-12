@@ -7,6 +7,7 @@ const baseUrl = (__ENV.BASE_URL || 'http://localhost:3000').replace(/\/$/, '');
 const vus = Number(__ENV.USERS || '50');
 const duration = __ENV.TEST_DURATION || '60s';
 const authToken = __ENV.AUTH_TOKEN || '';
+const mutationIterationsPerVu = Number(__ENV.MUTATION_ITERATIONS_PER_VU || '4');
 
 const errors = new Rate('cloudfleet_flow_errors');
 const flowRequests = new Counter('cloudfleet_flow_requests');
@@ -94,7 +95,8 @@ export function setup() {
   const drivers = driverResponses.map(jsonData).filter(Boolean);
   if (drivers.length !== vus) throw new Error(`Setup created ${drivers.length}/${vus} drivers`);
 
-  const lifecycleCount = Math.max(1, Math.ceil(vus / 5));
+  const mutationVuCount = Math.max(1, Math.floor(vus / 5));
+  const lifecycleCount = mutationVuCount * mutationIterationsPerVu;
   const orderRequests = [];
   for (let index = 0; index < lifecycleCount; index += 1) {
     orderRequests.push({
@@ -142,7 +144,7 @@ export function setup() {
   return { drivers, orders, trackingTokens };
 }
 
-let lifecycleDone = false;
+let lifecycleIndex = 0;
 
 const record = (response, trend, expected = 200) => {
   flowRequests.add(1);
@@ -185,10 +187,11 @@ export default function (data) {
       tags: { endpoint: 'operations_issues' },
     });
     record(response, issuesDuration);
-  } else if (!lifecycleDone) {
-    const slot = Math.floor((__VU - 1) / 5) % data.orders.length;
+  } else if (lifecycleIndex < mutationIterationsPerVu) {
+    const mutationVuIndex = Math.floor((__VU - 1) / 5);
+    const slot = (mutationVuIndex * mutationIterationsPerVu + lifecycleIndex) % data.orders.length;
     const order = data.orders[slot];
-    const driver = data.drivers[(__VU - 1) % data.drivers.length];
+    const driver = data.drivers[slot % data.drivers.length];
     const startedAt = Date.now();
     const assignment = http.patch(
       `${baseUrl}/api/orders/${order.orderId}/assign`,
@@ -214,7 +217,7 @@ export default function (data) {
     flowRequests.add(1);
     errors.add(!ok);
     check(ok, { 'assign and status mutation succeeded': (value) => value });
-    lifecycleDone = true;
+    lifecycleIndex += 1;
   } else {
     const response = http.get(`${baseUrl}/api/orders?limit=50`, {
       headers: headers(),
@@ -228,14 +231,22 @@ export default function (data) {
 const metricValue = (data, name, value) => data.metrics[name]?.values?.[value] ?? null;
 
 export function handleSummary(data) {
+  const flowP95Ms = {
+    get_orders: metricValue(data, 'flow_get_orders_duration', 'p(95)'),
+    tracking_refresh: metricValue(data, 'flow_tracking_refresh_duration', 'p(95)'),
+    gps_update: metricValue(data, 'flow_gps_update_duration', 'p(95)'),
+    assign_status_mutation: metricValue(data, 'flow_assign_status_mutation_duration', 'p(95)'),
+    operations_issues: metricValue(data, 'flow_operations_issues_duration', 'p(95)'),
+  };
   const output = {
-    profile: { vus, duration, baseUrl },
+    profile: { vus, duration, baseUrl, mutationIterationsPerVu },
     generatedAt: new Date().toISOString(),
     metrics: data.metrics,
     summary: {
       throughputRps: metricValue(data, 'cloudfleet_flow_requests', 'rate'),
       errorRate: metricValue(data, 'cloudfleet_flow_errors', 'rate'),
       httpP95Ms: metricValue(data, 'http_req_duration', 'p(95)'),
+      flowP95Ms,
     },
   };
   return {

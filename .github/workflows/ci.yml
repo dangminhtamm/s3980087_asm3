@@ -43,7 +43,7 @@ jobs:
       - uses: grafana/setup-k6-action@v1
       - run: npm run local:up
       - name: Run 50-user performance gate
-        run: TEST_DURATION=20s npm run perf:50
+        run: K6_ENFORCE_THRESHOLDS=false TEST_DURATION=20s npm run perf:50
       - run: node scripts/check-performance-budget.mjs load/reports/k6-50.json
       - if: always()
         uses: actions/upload-artifact@v4

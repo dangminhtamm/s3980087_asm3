@@ -1,4 +1,4 @@
-import { Duration, RemovalPolicy } from 'aws-cdk-lib';
+import { Duration, RemovalPolicy, Token } from 'aws-cdk-lib';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
@@ -9,6 +9,18 @@ export interface IdentityProps {
   removalPolicy: RemovalPolicy;
   allowedOrigins: string[];
 }
+
+const cognitoDomainPrefix = (prefix: string, account: string, fallbackSuffix: string): string => {
+  const suffix = Token.isUnresolved(account) ? fallbackSuffix : account;
+  const normalized = `${prefix}-${suffix}`
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  if (!normalized) throw new Error('Cognito domain prefix must contain a letter or number');
+  return normalized.slice(0, 63).replace(/-$/g, '');
+};
 
 export class Identity extends Construct {
   public readonly userPool: cognito.UserPool;
@@ -68,7 +80,11 @@ export class Identity extends Construct {
       },
     });
     this.userPoolDomain = this.userPool.addDomain('HostedDomain', {
-      cognitoDomain: { domainPrefix: `${props.prefix}-${props.account}`.toLowerCase() },
+      // Account is an unresolved CDK token during account-agnostic CI synthesis. Cognito validates
+      // domain prefixes eagerly, so use the construct address as a deterministic synth-only suffix.
+      cognitoDomain: {
+        domainPrefix: cognitoDomainPrefix(props.prefix, props.account, this.node.addr.slice(-12)),
+      },
     });
     this.applicationSecret = new secretsmanager.Secret(this, 'ApplicationSecret', {
       secretName: `${props.prefix}/application-secrets`,

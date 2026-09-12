@@ -46,6 +46,22 @@ describe('deployment configuration', () => {
       /Invalid CORS origin/,
     );
   });
+
+  it('supports account-agnostic CI synthesis with a valid Cognito domain', () => {
+    const app = new App();
+    const stack = new CloudFleetStack(app, 'AccountAgnostic', {
+      deployment: createDeploymentConfig({
+        projectName: 'cloudfleet',
+        stage: 'test',
+      }),
+    });
+    const template = Template.fromStack(stack);
+    const domains = template.findResources('AWS::Cognito::UserPoolDomain');
+    const domain = Object.values(domains)[0]?.Properties?.Domain as string;
+
+    assert.match(domain, /^[a-z0-9-]{1,63}$/);
+    assert.equal(domain.includes('token'), false);
+  });
 });
 
 describe('security-critical infrastructure', () => {
