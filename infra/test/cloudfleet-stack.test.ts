@@ -151,6 +151,7 @@ describe('security-critical infrastructure', () => {
     }
     for (const routeKey of [
       'GET /health',
+      'GET /ready',
       'GET /api/tracking/{trackingToken}',
       'POST /api/tracking/{trackingToken}/feedback',
       'POST /api/tracking/{trackingToken}/reschedule',
@@ -199,5 +200,32 @@ describe('security-critical infrastructure', () => {
       HealthCheckPath: '/health',
       Matcher: { HttpCode: '200' },
     });
+  });
+
+  it('hosts the SPA behind CloudFront with private S3 origin access', () => {
+    dev.hasResourceProperties('AWS::CloudFront::Distribution', {
+      DistributionConfig: Match.objectLike({
+        DefaultRootObject: 'index.html',
+        Enabled: true,
+        CustomErrorResponses: Match.arrayWith([
+          Match.objectLike({ ErrorCode: 403, ResponseCode: 200, ResponsePagePath: '/index.html' }),
+          Match.objectLike({ ErrorCode: 404, ResponseCode: 200, ResponsePagePath: '/index.html' }),
+        ]),
+      }),
+    });
+    dev.resourceCountIs('AWS::CloudFront::OriginAccessControl', 1);
+    dev.hasOutput('FrontendDistributionId', {});
+  });
+
+  it('provisions real EMR Serverless and Step Functions analytics resources', () => {
+    dev.hasResourceProperties('AWS::EMRServerless::Application', {
+      Type: 'SPARK',
+      ReleaseLabel: 'emr-7.13.0',
+    });
+    dev.hasResourceProperties('AWS::StepFunctions::StateMachine', {
+      StateMachineType: 'STANDARD',
+      TracingConfiguration: { Enabled: true },
+    });
+    dev.hasOutput('AnalyticsStateMachineArn', {});
   });
 });

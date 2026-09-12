@@ -172,7 +172,7 @@ export class ApiCompute extends Construct {
       maxHealthyPercent: 200,
     });
     service
-      .autoScaleTaskCount({ minCapacity: 1, maxCapacity: 4 })
+      .autoScaleTaskCount({ minCapacity: 1, maxCapacity: 1 })
       .scaleOnCpuUtilization('CpuScaling', {
         targetUtilizationPercent: 60,
         scaleInCooldown: Duration.seconds(120),
@@ -236,6 +236,7 @@ export class ApiCompute extends Construct {
     );
     for (const [path, method] of [
       ['/health', apigwv2.HttpMethod.GET],
+      ['/ready', apigwv2.HttpMethod.GET],
       ['/api/tracking/{trackingToken}', apigwv2.HttpMethod.GET],
       ['/api/tracking/{trackingToken}/feedback', apigwv2.HttpMethod.POST],
       ['/api/tracking/{trackingToken}/reschedule', apigwv2.HttpMethod.POST],
