@@ -5,13 +5,14 @@ import { App } from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
 
 import { CloudFleetStack } from '../lib/cloudfleet-stack.js';
-import { createDeploymentConfig } from '../lib/deployment-config.js';
+import { createDeploymentConfig, type DeploymentTarget } from '../lib/deployment-config.js';
 
-const synthesize = (stage: 'dev' | 'prod'): Template => {
+const synthesize = (stage: 'dev' | 'prod', target: DeploymentTarget = 'standard'): Template => {
   const app = new App();
   const deployment = createDeploymentConfig({
     projectName: 'cloudfleet-test',
     stage,
+    target,
     corsAllowedOrigins: 'http://localhost:5173,https://ops.example.com',
   });
   return Template.fromStack(
@@ -24,6 +25,7 @@ const synthesize = (stage: 'dev' | 'prod'): Template => {
 
 const dev = synthesize('dev');
 const prod = synthesize('prod');
+const learnerLab = synthesize('dev', 'learner-lab');
 
 describe('deployment configuration', () => {
   it('derives typed stage policy and normalized origins', () => {
@@ -32,11 +34,13 @@ describe('deployment configuration', () => {
       stage: 'prod',
       corsAllowedOrigins: 'https://ops.example.com, https://ops.example.com',
       routingProvider: 'osrm',
+      target: 'learner-lab',
     });
     assert.equal(config.prefix, 'fleet-prod');
     assert.equal(config.isProduction, true);
     assert.deepEqual(config.corsAllowedOrigins, ['https://ops.example.com']);
     assert.equal(config.routing.provider, 'osrm');
+    assert.equal(config.target, 'learner-lab');
   });
 
   it('rejects unknown stages and malformed origins', () => {
@@ -45,6 +49,7 @@ describe('deployment configuration', () => {
       () => createDeploymentConfig({ corsAllowedOrigins: 'https://example.com/path' }),
       /Invalid CORS origin/,
     );
+    assert.throws(() => createDeploymentConfig({ target: 'student' }), /target must be one of/);
   });
 
   it('supports account-agnostic CI synthesis with a valid Cognito domain', () => {
@@ -227,5 +232,35 @@ describe('security-critical infrastructure', () => {
       TracingConfiguration: { Enabled: true },
     });
     dev.hasOutput('AnalyticsStateMachineArn', {});
+  });
+
+  it('uses only Learner Lab-supported hosting and analytics resources in lab mode', () => {
+    learnerLab.resourceCountIs('AWS::CloudFront::Distribution', 0);
+    learnerLab.resourceCountIs('AWS::CloudFront::OriginAccessControl', 0);
+    learnerLab.resourceCountIs('AWS::EMRServerless::Application', 0);
+    learnerLab.hasResourceProperties('AWS::Glue::Job', {
+      Command: Match.objectLike({ Name: 'glueetl', PythonVersion: '3' }),
+      ExecutionProperty: { MaxConcurrentRuns: 1 },
+      GlueVersion: '4.0',
+      NumberOfWorkers: 2,
+      WorkerType: 'G.1X',
+    });
+    learnerLab.hasResourceProperties('AWS::S3::Bucket', {
+      PublicAccessBlockConfiguration: {
+        BlockPublicAcls: true,
+        BlockPublicPolicy: false,
+        IgnorePublicAcls: true,
+        RestrictPublicBuckets: false,
+      },
+    });
+    learnerLab.hasResourceProperties('AWS::S3::BucketPolicy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({ Action: 's3:GetObject', Effect: 'Allow', Principal: { AWS: '*' } }),
+        ]),
+      },
+    });
+    learnerLab.hasOutput('GlueAnalyticsJobName', {});
+    learnerLab.hasOutput('FrontendUrl', {});
   });
 });

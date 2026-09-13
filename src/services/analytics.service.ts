@@ -237,7 +237,7 @@ export class AnalyticsService {
       ) {
         throw new AppError(
           404,
-          'Analytics snapshot is not available; run the EMR Spark job first',
+          'Analytics snapshot is not available; run the Spark analytics job first',
           'ANALYTICS_NOT_READY',
         );
       }

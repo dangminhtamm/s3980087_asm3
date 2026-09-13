@@ -4,7 +4,7 @@ import {
   type EMRServerlessClient,
   type JobRunState,
 } from '@aws-sdk/client-emr-serverless';
-import type { EmrJobPort } from '../ports.js';
+import type { AnalyticsJobPort } from '../ports.js';
 
 const requiredEnvironment = (environment: NodeJS.ProcessEnv, name: string): string => {
   const value = environment[name]?.trim();
@@ -15,7 +15,7 @@ const requiredEnvironment = (environment: NodeJS.ProcessEnv, name: string): stri
 const idempotencyToken = (runId: string): string =>
   runId.replace(/[^A-Za-z0-9._-]/g, '').slice(0, 64);
 
-export class AwsEmrAdapter implements EmrJobPort {
+export class AwsEmrAdapter implements AnalyticsJobPort {
   constructor(
     private readonly client: EMRServerlessClient,
     private readonly environment: NodeJS.ProcessEnv,

@@ -1,8 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import type { GlueClient } from '@aws-sdk/client-glue';
 import { AnalyticsWorkflowService } from '../../src/lambdas/analytics-workflow/analytics-workflow.service.js';
-import type { DynamoExportPort, EmrJobPort } from '../../src/lambdas/analytics-workflow/ports.js';
+import { AwsGlueAdapter } from '../../src/lambdas/analytics-workflow/adapters/glue.adapter.js';
+import type {
+  AnalyticsJobPort,
+  DynamoExportPort,
+} from '../../src/lambdas/analytics-workflow/ports.js';
 import { DeliveryNotificationService } from '../../src/lambdas/delivery-notification/delivery-notification.service.js';
 import type {
   DeliveryStatusChange,
@@ -92,7 +97,7 @@ test('delivery notification ignores unchanged and invalid-phone records without 
   assert.equal(sends, 0);
 });
 
-test('analytics workflow dispatches through DynamoDB and EMR ports', async () => {
+test('analytics workflow dispatches through DynamoDB and Spark job ports', async () => {
   const calls: string[] = [];
   const exports: DynamoExportPort = {
     start: (runId) => {
@@ -104,7 +109,7 @@ test('analytics workflow dispatches through DynamoDB and EMR ports', async () =>
       return Promise.resolve({});
     },
   };
-  const jobs: EmrJobPort = {
+  const jobs: AnalyticsJobPort = {
     start: (runId, uri) => {
       calls.push(`job:start:${runId}:${uri}`);
       return Promise.resolve({});
@@ -127,6 +132,44 @@ test('analytics workflow dispatches through DynamoDB and EMR ports', async () =>
     'job:start:run-1:s3://input',
     'job:check:run-1:job-1',
   ]);
+});
+
+test('Glue adapter starts the configured job and normalizes terminal status', async () => {
+  const inputs: unknown[] = [];
+  const client = {
+    send: (command: unknown) => {
+      const typed = command as { constructor: { name: string }; input: unknown };
+      inputs.push(typed.input);
+      return Promise.resolve(
+        typed.constructor.name === 'StartJobRunCommand'
+          ? { JobRunId: 'glue-run-1' }
+          : { JobRun: { JobRunState: 'SUCCEEDED' } },
+      );
+    },
+  } as unknown as GlueClient;
+  const adapter = new AwsGlueAdapter(client, {
+    GLUE_JOB_NAME: 'cloudfleet-dev-delivery-analytics',
+    ANALYTICS_BUCKET: 'cloudfleet-dev-analytics',
+  });
+
+  assert.deepEqual(await adapter.start('run-1', 's3://exports/run-1/data/'), {
+    runId: 'run-1',
+    jobRunId: 'glue-run-1',
+  });
+  assert.deepEqual(await adapter.check('run-1', 'glue-run-1'), {
+    runId: 'run-1',
+    jobRunId: 'glue-run-1',
+    status: 'SUCCESS',
+    stateDetails: null,
+  });
+  assert.deepEqual(inputs[0], {
+    JobName: 'cloudfleet-dev-delivery-analytics',
+    Arguments: {
+      '--input-uri': 's3://exports/run-1/data/',
+      '--output-bucket': 'cloudfleet-dev-analytics',
+      '--output-key': 'analytics/latest/overview.json',
+    },
+  });
 });
 
 test('realtime connection logic consumes tickets through an in-memory port', async () => {

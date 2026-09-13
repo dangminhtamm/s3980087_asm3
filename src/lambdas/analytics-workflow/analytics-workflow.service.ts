@@ -1,4 +1,4 @@
-import type { AnalyticsWorkflowEvent, DynamoExportPort, EmrJobPort } from './ports.js';
+import type { AnalyticsJobPort, AnalyticsWorkflowEvent, DynamoExportPort } from './ports.js';
 
 const requiredString = (value: unknown, name: string): string => {
   if (typeof value !== 'string' || value.trim().length === 0) {
@@ -10,7 +10,7 @@ const requiredString = (value: unknown, name: string): string => {
 export class AnalyticsWorkflowService {
   constructor(
     private readonly exports: DynamoExportPort,
-    private readonly jobs: EmrJobPort,
+    private readonly jobs: AnalyticsJobPort,
   ) {}
 
   execute(event: AnalyticsWorkflowEvent): Promise<unknown> {

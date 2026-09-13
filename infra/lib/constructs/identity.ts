@@ -7,7 +7,8 @@ export interface IdentityProps {
   prefix: string;
   account: string;
   removalPolicy: RemovalPolicy;
-  allowedOrigins: string[];
+  callbackUrls: string[];
+  logoutUrls: string[];
 }
 
 const cognitoDomainPrefix = (prefix: string, account: string, fallbackSuffix: string): string => {
@@ -75,8 +76,8 @@ export class Identity extends Construct {
       oAuth: {
         flows: { authorizationCodeGrant: true },
         scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL, cognito.OAuthScope.PROFILE],
-        callbackUrls: props.allowedOrigins.map((origin) => `${origin}/auth/callback`),
-        logoutUrls: props.allowedOrigins.map((origin) => `${origin}/`),
+        callbackUrls: props.callbackUrls,
+        logoutUrls: props.logoutUrls,
       },
     });
     this.userPoolDomain = this.userPool.addDomain('HostedDomain', {

@@ -50,14 +50,17 @@ const createUserManager = (): UserManager | null => {
   const clientId = requiredEnv('VITE_COGNITO_CLIENT_ID');
   const domain = requiredEnv('VITE_COGNITO_DOMAIN').replace(/\/$/, '');
   const authority = `https://cognito-idp.${region}.amazonaws.com/${userPoolId}`;
-  const logoutRedirectUri = window.location.origin;
+  const redirectUri =
+    runtimeEnv('VITE_COGNITO_REDIRECT_URI') || `${window.location.origin}/auth/callback`;
+  const logoutRedirectUri = redirectUri.endsWith('/auth/callback')
+    ? redirectUri.slice(0, -'/auth/callback'.length) || window.location.origin
+    : redirectUri;
   cognitoLogoutUrl = `${domain}/logout?client_id=${encodeURIComponent(clientId)}&logout_uri=${encodeURIComponent(logoutRedirectUri)}`;
 
   return new UserManager({
     authority,
     client_id: clientId,
-    redirect_uri:
-      runtimeEnv('VITE_COGNITO_REDIRECT_URI') || `${window.location.origin}/auth/callback`,
+    redirect_uri: redirectUri,
     post_logout_redirect_uri: logoutRedirectUri,
     response_type: 'code',
     scope: 'openid email profile',

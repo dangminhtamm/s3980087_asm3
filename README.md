@@ -149,8 +149,8 @@ screens to use their in-memory demo dataset when the API is unavailable.
 | `POST`   | `/api/drivers/:id/push-subscriptions`     | Register a driver's browser push subscription            |
 | `DELETE` | `/api/drivers/:id/push-subscriptions`     | Remove a driver's browser push subscription              |
 | `POST`   | `/api/realtime/ticket`                    | Issue a one-time WebSocket connection ticket             |
-| `GET`    | `/api/analytics/overview`                 | Read the latest EMR analytics snapshot                   |
-| `POST`   | `/api/analytics/runs`                     | Start the automated DynamoDB export and EMR workflow     |
+| `GET`    | `/api/analytics/overview`                 | Read the latest Spark analytics snapshot                 |
+| `POST`   | `/api/analytics/runs`                     | Start the automated DynamoDB export and Spark workflow   |
 | `GET`    | `/api/analytics/runs/:runId`              | Read a Step Functions analytics execution status         |
 | `GET`    | `/api/orders/:id/proof/upload-url`        | Create an S3 proof upload URL                            |
 | `POST`   | `/api/orders/:id/proof`                   | Verify S3 object and store proof metadata                |
@@ -340,12 +340,12 @@ divided by all assignments in the window, and active time uses the recorded
 `DELIVERY_STARTED` and `DELIVERY_COMPLETED` events with a legacy timestamp
 fallback.
 
-## Automated EMR analytics
+## Automated Spark analytics
 
 An admin starts a refresh from the Analytics dashboard. The ECS API starts an
 AWS Step Functions execution, which exports the DynamoDB table to S3, waits for
-the export, submits `analytics/emr/jobs/delivery_performance.py` to EMR
-Serverless, and waits for the Spark job to finish. The job calculates global and
+the export, submits `analytics/emr/jobs/delivery_performance.py` to AWS Glue in
+Learner Lab mode (or EMR Serverless in standard mode), and waits for the Spark job to finish. The job calculates global and
 regional delivery metrics and atomically replaces
 `analytics/latest/overview.json`; the dashboard polls the durable execution and
 reloads the snapshot when it succeeds. No AWS Console or CLI action is required
@@ -372,12 +372,13 @@ npm run test:local
 
 ## AWS infrastructure
 
-The deployable AWS CDK application is in `infra/`. It provisions DynamoDB with
-Streams and two GSIs, private S3 buckets, CloudFront hosting with Origin Access
-Control and React Router fallback, the delivery notification Lambda, Cognito,
-ECS Fargate, an internal ALB, and an API Gateway HTTP API with a VPC Link and
-Cognito JWT authorizer. CDK builds and uploads the frontend and creates its
-production API/Cognito runtime configuration automatically.
+The deployable AWS CDK application is in `infra/`. Its default
+`deploymentTarget=learner-lab` provisions S3 HTTPS frontend hosting, AWS Glue
+Spark analytics, DynamoDB, Lambda, Cognito, ECS Fargate, an internal ALB, and
+API Gateway with VPC Link and JWT authorization. Use
+`--context deploymentTarget=standard` in an unrestricted AWS account to select
+private S3 + CloudFront OAC and EMR Serverless instead. Both modes generate the
+frontend API/Cognito runtime configuration automatically.
 
 `CloudFleetStack` is wiring-only. Infrastructure is split into `OperationalData`,
 `Storage`, `Identity`, `FrontendHosting`, `ApiCompute`, `Realtime`,

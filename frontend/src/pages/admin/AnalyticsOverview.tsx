@@ -238,7 +238,7 @@ export const AnalyticsOverview = () => {
             await loadControlTower(true);
             toast({
               title: 'Analytics refreshed',
-              description: 'The latest EMR snapshot is now visible.',
+              description: 'The latest analytics snapshot is now visible.',
               tone: 'success',
             });
           } else if (terminalRunStatuses.has(updatedRun.status)) {
@@ -259,7 +259,7 @@ export const AnalyticsOverview = () => {
     try {
       setRun(await startAnalyticsRun());
       toast({
-        title: 'EMR analytics started',
+        title: 'Analytics refresh started',
         description: 'CloudFleet will update this page when the Spark job completes.',
         tone: 'info',
       });

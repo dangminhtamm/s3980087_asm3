@@ -230,7 +230,7 @@ const AnalyticsControls = ({
     <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
       <div>
         <p className="text-[9px] font-bold tracking-[0.19em] text-neutral-400 uppercase">
-          EMR intelligence / historical network
+          Spark intelligence / historical network
         </p>
         <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-neutral-950 sm:text-3xl">
           Delivery performance analytics

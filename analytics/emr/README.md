@@ -1,4 +1,4 @@
-# CloudFleet automated EMR analytics
+# CloudFleet automated Spark analytics
 
 The Admin Analytics page starts this pipeline through
 `POST /api/analytics/runs`; no AWS Console or CLI step is part of the normal
@@ -9,7 +9,7 @@ Admin UI
   -> ECS API starts Step Functions
   -> Lambda starts DynamoDB point-in-time export to the analytics bucket
   -> Step Functions waits and polls the export
-  -> Lambda starts the EMR Serverless Spark job
+  -> Lambda starts the AWS Glue or EMR Serverless Spark job
   -> Step Functions waits and polls the job
   -> Spark writes analytics/latest/overview.json
   -> Admin UI reloads GET /api/analytics/overview
@@ -23,9 +23,9 @@ Admin UI
   operation per invocation. It never waits inside Lambda.
 - The Standard Step Functions workflow owns waits, branching, retries, execution
   history and the two-hour workflow timeout.
-- The ECS task role can start and inspect the workflow but cannot call EMR or
+- The ECS task role can start and inspect the workflow but cannot call the Spark engine or
   export DynamoDB directly.
-- The EMR execution role can read the export and Spark entry point and write the
+- The Spark execution role can read the export and Spark entry point and write the
   stable dashboard snapshot.
 
 ## API
@@ -43,7 +43,7 @@ GET /api/analytics/runs/{runId}
 ```
 
 The run response includes a progress timeline derived from Step Functions
-execution history: DynamoDB export, EMR startup, Spark aggregation and S3
+execution history: DynamoDB export, analytics job startup, Spark aggregation and S3
 snapshot publication.
 
 Dashboard queries accept an inclusive date range and optional region:
@@ -75,6 +75,8 @@ aggregates the requested date range in memory. DynamoDB exports are retained
 under `dynamodb-exports/<run-id>/` for traceability and can be removed later
 with an S3 lifecycle rule if required.
 
-Use the Step Functions execution graph, EMR Serverless job run and CloudWatch
-logs to troubleshoot failures. CLI commands are optional operational tools, not
-part of the automated user flow.
+Learner Lab deployments use an AWS Glue 4.0 job with two `G.1X` workers because
+CloudFront OAC and EMR Serverless are not granted to `LabRole`. Standard
+deployments use EMR Serverless. Use the Step Functions execution graph, the
+selected Spark job run and CloudWatch logs to troubleshoot failures. CLI
+commands are optional operational tools, not part of the automated user flow.

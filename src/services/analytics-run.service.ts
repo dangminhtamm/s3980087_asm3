@@ -67,8 +67,9 @@ const buildProgress = (
 ): AnalyticsRunProgress => {
   const states = enteredStates(events);
   const exportStarted = states.get('StartDynamoDbExport') ?? null;
-  const emrStarted = states.get('StartEmrServerlessJob') ?? null;
-  const sparkStarted = states.get('WaitForEmrServerlessJob') ?? null;
+  const jobStarted = states.get('StartSparkJob') ?? states.get('StartEmrServerlessJob') ?? null;
+  const sparkStarted =
+    states.get('WaitForSparkJob') ?? states.get('WaitForEmrServerlessJob') ?? null;
   const published = states.get('AnalyticsRefreshCompleted') ?? null;
   const terminalFailure = ['FAILED', 'TIMED_OUT', 'ABORTED'].includes(status);
 
@@ -82,12 +83,12 @@ const buildProgress = (
       id: 'EXPORT',
       label: 'Export DynamoDB snapshot',
       started: exportStarted,
-      completed: Boolean(emrStarted),
+      completed: Boolean(jobStarted),
     },
     {
       id: 'EMR_START',
-      label: 'Start EMR Serverless',
-      started: emrStarted,
+      label: 'Start analytics job',
+      started: jobStarted,
       completed: Boolean(sparkStarted),
     },
     {

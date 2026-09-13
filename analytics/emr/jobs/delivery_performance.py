@@ -1,7 +1,7 @@
-"""Build CloudFleet's versioned daily analytics rollup with EMR Serverless.
+"""Build CloudFleet's versioned daily analytics rollup with Spark.
 
 The dashboard API aggregates this compact, non-PII snapshot for arbitrary date
-ranges and regions. Spark does the expensive DynamoDB export scan only once.
+ranges and regions. The same script runs on AWS Glue or EMR Serverless.
 """
 
 import argparse
@@ -19,7 +19,8 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--input-uri", required=True)
     parser.add_argument("--output-bucket", required=True)
     parser.add_argument("--output-key", default="analytics/latest/overview.json")
-    return parser.parse_args()
+    args, _ = parser.parse_known_args()
+    return args
 
 
 def load_orders(spark: SparkSession, input_uri: str):

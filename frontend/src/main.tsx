@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, HashRouter } from 'react-router-dom';
 import 'leaflet/dist/leaflet.css';
 
 import App from './App';
@@ -12,6 +12,18 @@ import { startWebVitalsReporting } from './services/telemetry';
 
 startWebVitalsReporting();
 
+const usesS3LearnerLabRouting = window.location.pathname.endsWith('/index.html');
+const oauthParameters = new URLSearchParams(window.location.search);
+const isOauthCallback = oauthParameters.has('code') || oauthParameters.has('error');
+if (usesS3LearnerLabRouting && isOauthCallback && !window.location.hash) {
+  window.history.replaceState(
+    null,
+    '',
+    `${window.location.pathname}${window.location.search}#/auth/callback`,
+  );
+}
+const Router = usesS3LearnerLabRouting ? HashRouter : BrowserRouter;
+
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     void navigator.serviceWorker.register('/sw.js');
@@ -22,12 +34,12 @@ if ('serviceWorker' in navigator) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
+    <Router>
       <CloudFleetAuthProvider>
         <ToastProvider>
           <App />
         </ToastProvider>
       </CloudFleetAuthProvider>
-    </BrowserRouter>
+    </Router>
   </StrictMode>,
 );

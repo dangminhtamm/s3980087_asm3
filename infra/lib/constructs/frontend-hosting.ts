@@ -12,15 +12,21 @@ import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import { Construct } from 'constructs';
 
 import { projectRoot } from '../project-paths.js';
+import type { DeploymentTarget } from '../deployment-config.js';
 
 export interface FrontendHostingProps {
   prefix: string;
   frontendBucket: s3.Bucket;
+  target: DeploymentTarget;
 }
 
 export class FrontendHosting extends Construct {
-  public readonly distribution: cloudfront.Distribution;
+  public readonly distribution?: cloudfront.Distribution;
+  public readonly origin: string;
   public readonly publicUrl: string;
+  public readonly callbackUrl: string;
+  public readonly logoutUrl: string;
+  public readonly trackingBaseUrl: string;
   private readonly prefix: string;
   private readonly frontendBucket: s3.Bucket;
 
@@ -28,6 +34,15 @@ export class FrontendHosting extends Construct {
     super(scope, id);
     this.prefix = props.prefix;
     this.frontendBucket = props.frontendBucket;
+    if (props.target === 'learner-lab') {
+      this.origin = `https://${props.frontendBucket.bucketRegionalDomainName}`;
+      this.publicUrl = `${this.origin}/index.html`;
+      this.callbackUrl = this.publicUrl;
+      this.logoutUrl = this.publicUrl;
+      this.trackingBaseUrl = `${this.publicUrl}#`;
+      return;
+    }
+
     const origin = origins.S3BucketOrigin.withOriginAccessControl(props.frontendBucket);
     const behavior: cloudfront.BehaviorOptions = {
       origin,
@@ -56,7 +71,11 @@ export class FrontendHosting extends Construct {
       httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
       priceClass: cloudfront.PriceClass.PRICE_CLASS_200,
     });
-    this.publicUrl = `https://${this.distribution.distributionDomainName}`;
+    this.origin = `https://${this.distribution.distributionDomainName}`;
+    this.publicUrl = this.origin;
+    this.callbackUrl = `${this.publicUrl}/auth/callback`;
+    this.logoutUrl = `${this.publicUrl}/`;
+    this.trackingBaseUrl = this.publicUrl;
   }
 
   public deploy(input: {
@@ -66,15 +85,15 @@ export class FrontendHosting extends Construct {
     userPoolDomain: cognito.UserPoolDomain;
     labRole: iam.IRole;
   }): void {
-    const deployment = new s3deploy.BucketDeployment(this, 'FrontendDeployment', {
+    const deploymentProps: s3deploy.BucketDeploymentProps = {
       destinationBucket: this.frontendBucket,
       sources: [s3deploy.Source.asset(path.join(projectRoot, 'frontend/dist'))],
       exclude: ['runtime-config.js'],
       prune: true,
-      distribution: this.distribution,
-      distributionPaths: ['/*'],
       role: input.labRole,
-    });
+      ...(this.distribution ? { distribution: this.distribution, distributionPaths: ['/*'] } : {}),
+    };
+    const deployment = new s3deploy.BucketDeployment(this, 'FrontendDeployment', deploymentProps);
     const runtimeConfiguration = Stack.of(this).toJsonString({
       VITE_API_BASE_URL: input.httpApi.apiEndpoint,
       VITE_AUTH_MODE: 'cognito',
@@ -82,7 +101,7 @@ export class FrontendHosting extends Construct {
       VITE_COGNITO_USER_POOL_ID: input.userPool.userPoolId,
       VITE_COGNITO_CLIENT_ID: input.userPoolClient.userPoolClientId,
       VITE_COGNITO_DOMAIN: input.userPoolDomain.baseUrl(),
-      VITE_COGNITO_REDIRECT_URI: `${this.publicUrl}/auth/callback`,
+      VITE_COGNITO_REDIRECT_URI: this.callbackUrl,
       VITE_ENABLE_MOCK_FALLBACK: 'false',
     });
     const request: customResources.AwsSdkCall = {

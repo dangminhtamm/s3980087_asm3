@@ -92,7 +92,7 @@ export const AnalyticsOverviewView = (props: Props) => {
             disabled={isEmrRunning}
             onClick={() => void props.startEmr()}
           >
-            {isEmrRunning ? 'EMR running…' : 'Refresh analytics'}
+            {isEmrRunning ? 'Analytics running…' : 'Refresh analytics'}
           </Button>
         </div>
       </header>
@@ -113,7 +113,7 @@ export const AnalyticsOverviewView = (props: Props) => {
         </span>
         {run && (
           <span className="ml-auto text-[10px] font-semibold text-neutral-500">
-            EMR · {run.status} · <span className="font-mono">{run.runId.slice(0, 8)}</span>
+            Spark · {run.status} · <span className="font-mono">{run.runId.slice(0, 8)}</span>
           </span>
         )}
       </div>
@@ -162,7 +162,7 @@ export const AnalyticsOverviewView = (props: Props) => {
                   ? '—'
                   : `${analytics.averageDeliveryMinutes.toFixed(1)} min`
               }
-              detail="Latest EMR operational snapshot"
+              detail="Latest Spark operational snapshot"
               dotClassName="bg-amber-500"
             />
           </section>

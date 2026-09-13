@@ -2,6 +2,8 @@ import { RemovalPolicy, type App } from 'aws-cdk-lib';
 
 export const DEPLOYMENT_STAGES = ['dev', 'test', 'staging', 'prod'] as const;
 export type DeploymentStage = (typeof DEPLOYMENT_STAGES)[number];
+export const DEPLOYMENT_TARGETS = ['standard', 'learner-lab'] as const;
+export type DeploymentTarget = (typeof DEPLOYMENT_TARGETS)[number];
 
 export interface RoutingDeploymentConfig {
   provider: 'straight-line' | 'osrm';
@@ -16,6 +18,7 @@ export interface DeploymentConfig {
   prefix: string;
   isProduction: boolean;
   removalPolicy: RemovalPolicy;
+  target: DeploymentTarget;
   corsAllowedOrigins: string[];
   routing: RoutingDeploymentConfig;
 }
@@ -23,6 +26,7 @@ export interface DeploymentConfig {
 export interface DeploymentConfigInput {
   projectName?: string;
   stage?: string;
+  target?: string;
   corsAllowedOrigins?: string;
   routingProvider?: string;
   routingBaseUrl?: string;
@@ -42,6 +46,14 @@ export const parseDeploymentStage = (value: string | undefined): DeploymentStage
     throw new Error(`stage must be one of: ${DEPLOYMENT_STAGES.join(', ')}`);
   }
   return stage as DeploymentStage;
+};
+
+export const parseDeploymentTarget = (value: string | undefined): DeploymentTarget => {
+  const target = requiredText(value, 'standard', 'target');
+  if (!DEPLOYMENT_TARGETS.includes(target as DeploymentTarget)) {
+    throw new Error(`target must be one of: ${DEPLOYMENT_TARGETS.join(', ')}`);
+  }
+  return target as DeploymentTarget;
 };
 
 const parseCorsOrigins = (value: string | undefined): string[] => {
@@ -73,6 +85,7 @@ export const createDeploymentConfig = (input: DeploymentConfigInput): Deployment
     prefix: `${projectName}-${stage}`,
     isProduction,
     removalPolicy: isProduction ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
+    target: parseDeploymentTarget(input.target),
     corsAllowedOrigins: parseCorsOrigins(input.corsAllowedOrigins),
     routing: {
       provider,
@@ -103,6 +116,7 @@ export const deploymentConfigFromApp = (
   createDeploymentConfig({
     projectName: contextText(app, 'projectName'),
     stage: contextText(app, 'stage'),
+    target: contextText(app, 'deploymentTarget'),
     corsAllowedOrigins: contextText(app, 'corsAllowedOrigins'),
     routingProvider: contextText(app, 'routingProvider') ?? environment.CLOUDFLEET_ROUTING_PROVIDER,
     routingBaseUrl: contextText(app, 'routingBaseUrl') ?? environment.CLOUDFLEET_ROUTING_BASE_URL,

@@ -9,7 +9,7 @@ export interface DynamoExportPort {
   check(runId: string, exportArn: string): Promise<unknown>;
 }
 
-export interface EmrJobPort {
+export interface AnalyticsJobPort {
   start(runId: string, inputUri: string): Promise<unknown>;
   check(runId: string, jobRunId: string): Promise<unknown>;
 }

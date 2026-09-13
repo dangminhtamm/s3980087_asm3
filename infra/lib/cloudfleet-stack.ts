@@ -64,8 +64,9 @@ export class CloudFleetStack extends Stack {
     const frontend = new FrontendHosting(this, 'FrontendHosting', {
       prefix: config.prefix,
       frontendBucket: storage.frontendBucket,
+      target: config.target,
     });
-    const allowedOrigins = [...config.corsAllowedOrigins, frontend.publicUrl];
+    const allowedOrigins = [...new Set([...config.corsAllowedOrigins, frontend.origin])];
     storage.deliveryProofBucket.addCorsRule({
       allowedMethods: [s3.HttpMethods.PUT],
       allowedOrigins,
@@ -74,9 +75,14 @@ export class CloudFleetStack extends Stack {
       maxAge: 3_600,
     });
     const identity = new Identity(this, 'Identity', {
-      ...config,
+      prefix: config.prefix,
       account: this.account,
-      allowedOrigins,
+      removalPolicy: config.removalPolicy,
+      callbackUrls: [
+        ...config.corsAllowedOrigins.map((origin) => `${origin}/auth/callback`),
+        frontend.callbackUrl,
+      ],
+      logoutUrls: [...config.corsAllowedOrigins.map((origin) => `${origin}/`), frontend.logoutUrl],
     });
     const realtime = new Realtime(this, 'Realtime', {
       prefix: config.prefix,
@@ -89,6 +95,7 @@ export class CloudFleetStack extends Stack {
       table: operationalData.table,
       analyticsBucket: storage.analyticsBucket,
       labRole,
+      target: config.target,
     });
     const api = new ApiCompute(this, 'ApiCompute', {
       prefix: config.prefix,
@@ -99,7 +106,7 @@ export class CloudFleetStack extends Stack {
       realtimeApi: realtime.api,
       webSocketPublicUrl: realtime.publicUrl,
       webSocketManagementEndpoint: realtime.managementEndpoint,
-      trackingBaseUrl: frontend.publicUrl,
+      trackingBaseUrl: frontend.trackingBaseUrl,
       corsAllowedOrigins: allowedOrigins,
       userPool: identity.userPool,
       userPoolClient: identity.userPoolClient,
@@ -111,7 +118,7 @@ export class CloudFleetStack extends Stack {
       prefix: config.prefix,
       applicationSecret: identity.applicationSecret,
       labRole,
-      trackingBaseUrl: frontend.publicUrl,
+      trackingBaseUrl: frontend.trackingBaseUrl,
     });
     frontend.deploy({
       httpApi: api.httpApi,
@@ -161,15 +168,22 @@ export class CloudFleetStack extends Stack {
     output(
       'FrontendUrl',
       input.frontend.publicUrl,
-      'CloudFront HTTPS URL for the CloudFleet React application.',
+      'HTTPS URL for the CloudFleet React application.',
     );
-    output('FrontendDistributionId', input.frontend.distribution.distributionId);
+    if (input.frontend.distribution) {
+      output('FrontendDistributionId', input.frontend.distribution.distributionId);
+    }
     output('DeliveryProofBucketName', input.storage.deliveryProofBucket.bucketName);
     output('AnalyticsBucketName', input.storage.analyticsBucket.bucketName);
     output('WebSocketUrl', input.realtime.publicUrl);
-    output('EmrServerlessApplicationId', input.analytics.application.attrApplicationId);
-    output('EmrAnalyticsJobRoleArn', input.analytics.jobRole.roleArn);
-    output('EmrAnalyticsEntryPoint', input.analytics.entryPoint);
+    if (input.analytics.application) {
+      output('EmrServerlessApplicationId', input.analytics.application.attrApplicationId);
+    }
+    if (input.analytics.glueJob) {
+      output('GlueAnalyticsJobName', input.analytics.glueJob.ref);
+    }
+    output('AnalyticsJobRoleArn', input.analytics.jobRole.roleArn);
+    output('AnalyticsEntryPoint', input.analytics.entryPoint);
     output('AnalyticsStateMachineArn', input.analytics.stateMachine.stateMachineArn);
     output('OrdersTableName', input.operationalData.table.tableName);
     output('CognitoUserPoolId', input.identity.userPool.userPoolId);

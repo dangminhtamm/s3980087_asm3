@@ -2,7 +2,7 @@ import type { AnalyticsRun } from '../../types/admin';
 
 const idleSteps: AnalyticsRun['progress']['steps'] = [
   { id: 'EXPORT', label: 'Export DynamoDB snapshot', status: 'PENDING', timestamp: null },
-  { id: 'EMR_START', label: 'Start EMR Serverless', status: 'PENDING', timestamp: null },
+  { id: 'EMR_START', label: 'Start analytics job', status: 'PENDING', timestamp: null },
   { id: 'SPARK', label: 'Run Spark aggregation', status: 'PENDING', timestamp: null },
   { id: 'PUBLISH', label: 'Publish analytics snapshot', status: 'PENDING', timestamp: null },
 ];
@@ -18,7 +18,7 @@ export const EmrProgressTimeline = ({ run }: { run: AnalyticsRun | null }) => {
           <p className="text-[9px] font-bold tracking-[0.18em] text-neutral-500 uppercase">
             Pipeline status
           </p>
-          <h3 className="mt-2 text-lg font-semibold tracking-tight">EMR refresh timeline</h3>
+          <h3 className="mt-2 text-lg font-semibold tracking-tight">Analytics refresh timeline</h3>
         </div>
         <span className="font-mono text-2xl font-semibold">{percent}%</span>
       </div>
